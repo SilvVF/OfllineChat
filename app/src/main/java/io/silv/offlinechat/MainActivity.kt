@@ -8,10 +8,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.MaterialTheme
@@ -24,6 +21,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import io.silv.offlinechat.ui.PeerListItem
 import io.silv.offlinechat.ui.theme.OfflineChatTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,11 +64,14 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.Start) {
+                    Column(Modifier.fillMaxSize()) {
                         Text(text = "Peers")
-                        LazyColumn(Modifier.fillMaxSize()) {
+                        LazyColumn(Modifier.fillMaxSize(),  verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.CenterHorizontally) {
                             items(peers) {
-                                Text(text = "name:${it.deviceName}  address:${it.deviceAddress}")
+                                PeerListItem(device = it, modifier = Modifier
+                                    .fillMaxWidth(0.5f)
+                                    .wrapContentHeight())
+                                Spacer(modifier = Modifier.height(12.dp))
                             }
                         }
                     }
