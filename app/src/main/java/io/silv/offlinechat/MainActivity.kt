@@ -1,62 +1,39 @@
 package io.silv.offlinechat
 
+import android.Manifest
 import android.content.IntentFilter
-import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pManager
 import android.net.wifi.p2p.WifiP2pManager.*
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import io.silv.offlinechat.ui.PeerListItem
+import com.google.accompanist.permissions.*
+import io.silv.offlinechat.ui.PermissionRequestScreen
 import io.silv.offlinechat.ui.theme.OfflineChatTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
-import org.koin.androidx.compose.inject
-import org.koin.core.parameter.parametersOf
 
 
 class MainActivity : ComponentActivity() {
 
-    private val channel: WifiP2pManager.Channel = get()
-    private val manager: WifiP2pManager = get()
     private val receiver: WifiP2pReceiver = get()
     private val wifiP2pIntentFilter = IntentFilter()
 
+    @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setWifiP2pIntents()
 
         val viewModel by inject<MainActivityViewModel>()
 
+
         setContent {
-
-            val peers by viewModel.peers.collectAsState()
-
-            LaunchedEffect(key1 = true) {
-                viewModel.sideEffects.collect {
-                    Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT ).show()
-                }
-            }
 
             OfflineChatTheme {
                 // A surface container using the 'background' color from the theme
@@ -64,16 +41,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Column(Modifier.fillMaxSize()) {
-                        Text(text = "Peers")
-                        LazyColumn(Modifier.fillMaxSize(),  verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.CenterHorizontally) {
-                            items(peers) {
-                                PeerListItem(device = it, modifier = Modifier
-                                    .fillMaxWidth(0.5f)
-                                    .wrapContentHeight())
-                                Spacer(modifier = Modifier.height(12.dp))
+                    val permissionState = rememberMultiplePermissionsState(permissionsList())
+                    if (permissionState.allPermissionsGranted) {
+                        ContentMain(
+                            viewModel = viewModel,
+                            showToast = {
+                                Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
                             }
-                        }
+                        )
+                    } else {
+                       PermissionRequestScreen(permissionsState = permissionState)
                     }
                 }
             }
@@ -100,18 +77,16 @@ class MainActivity : ComponentActivity() {
             addAction(WIFI_P2P_THIS_DEVICE_CHANGED_ACTION)
         }
     }
+    private fun permissionsList() =
+        buildList {
+            add(Manifest.permission.ACCESS_NETWORK_STATE)
+            add(Manifest.permission.INTERNET)
+            add(Manifest.permission.CHANGE_WIFI_STATE)
+            add(Manifest.permission.ACCESS_WIFI_STATE)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU)
+                add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }.toList()
 }
 
-
-@Composable
-fun Greeting(name: String) {
-    Text(text = "Hello $name!")
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    OfflineChatTheme {
-        Greeting("Android")
-    }
-}

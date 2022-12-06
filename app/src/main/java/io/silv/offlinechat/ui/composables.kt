@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -16,6 +17,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.MultiplePermissionsState
 
 @SuppressLint("NewApi")
 @Composable
@@ -28,9 +31,12 @@ fun PeerListItem(
         modifier = modifier.shadow(4.dp, RoundedCornerShape(32.dp)),
         elevation = 4.dp,
         shape = RoundedCornerShape(33.dp),
-        backgroundColor = MaterialTheme.colors.primaryVariant
+        backgroundColor = MaterialTheme.colors.background
     ) {
-        Column(Modifier.wrapContentHeight().padding(12.dp)) {
+        Column(
+            Modifier
+                .wrapContentHeight()
+                .padding(12.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 Text(text = "Device Name:", fontSize = 26.sp)
                 Text(text = device.deviceName, color = Color.DarkGray, fontSize = 18.sp)
@@ -45,9 +51,31 @@ fun PeerListItem(
             Text(text = "secondary device type: ${device.secondaryDeviceType}")
             Text(text = "device status: ${device.status}")
             Text(text = "device status: ${getWfdInfo(device)}")
+            Text(text = "is service discovery capable: ${device.isServiceDiscoveryCapable}")
         }
     }
 }
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+fun PermissionRequestScreen(permissionsState: MultiplePermissionsState) {
+    if (permissionsState.allPermissionsGranted) {
+        // If all permissions are granted, then show screen with the feature enabled
+        Text("Camera and Read storage permissions Granted! Thank you!")
+    } else {
+        Column {
+            Text(
+                permissionsState.revokedPermissions.toString()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
+                Text("Request permissions")
+            }
+        }
+    }
+}
+
+
 
 @RequiresApi(Build.VERSION_CODES.R)
 private fun getWfdInfo(device : WifiP2pDevice): String {

@@ -30,8 +30,11 @@ val appModule = module {
     }
 
     viewModel {
+        val receiver: WifiP2pReceiver = get()
         MainActivityViewModel(
-            get(), get(), get()
+            receiver = receiver,
+            channel = receiver.channel,
+            manager = receiver.manager
         )
     }
 }
