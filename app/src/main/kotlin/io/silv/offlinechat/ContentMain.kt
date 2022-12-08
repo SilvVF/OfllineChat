@@ -5,10 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material.TextField
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -31,6 +29,7 @@ fun ContentMain(
             showToast(it)
         }
     }
+    var text by remember { mutableStateOf("")}
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -44,6 +43,15 @@ fun ContentMain(
                     Text(text = connectionInfo.toString())
                 }
             }
+        }
+        item {
+            TextField(
+                value = text,
+                onValueChange = {
+                    text = it
+                    globalPortNumber = it.toIntOrNull() ?: 0
+                }
+            )
         }
         item {
             Text(text = "Peers")

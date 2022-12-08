@@ -73,31 +73,10 @@ class WifiP2pReceiver(
         }
     }
 
+    var connectionListenerCallback: ((WifiP2pInfo) -> Unit)? = null
     private val connectionListener = WifiP2pManager.ConnectionInfoListener { info ->
         Log.d("peers", "connectionListener info ${info.toString()}")
-        // String from WifiP2pInfo struct
-        val groupOwnerAddress: String = info.groupOwnerAddress.hostAddress as String
-        // (server).
-        if (info.groupFormed && info.isGroupOwner) {
-            // Do whatever tasks are specific to the group owner.
-            // One common case is creating a group owner thread and accepting
-            // incoming connections.
-            Log.d("peers", "server")
-            scope.launch {
-                val server = DeviceServer(info)
-                server.dataChannel.collect {
-                    mutableErrorChannel.send(WifiP2pError.DataR(it))
-                }
-            }
-        } else if (info.groupFormed) {
-//             The other device acts as the peer (client). In this case,
-//             you'll want to create a peer thread that connects
-//             to the group owner.
-            Log.d("peers", "client")
-            scope.launch {
-                val client = DeviceClient(info)
-            }
-        }
+        connectionListenerCallback?.invoke(info)
     }
     /**
      *  this only initiates peer discovery. starts the discovery process and then immediately returns.
