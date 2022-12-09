@@ -2,7 +2,6 @@ package io.silv.offlinechat
 
 import android.Manifest
 import android.content.IntentFilter
-import android.net.wifi.p2p.WifiP2pManager
 import android.net.wifi.p2p.WifiP2pManager.*
 import android.os.Build
 import android.os.Bundle
@@ -12,8 +11,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
+import androidx.compose.material.Text
 import androidx.compose.ui.Modifier
 import com.google.accompanist.permissions.*
+import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
+import io.silv.offlinechat.data.globalIp
+import io.silv.offlinechat.data.globalPort
+import io.silv.offlinechat.ui.ContentMain
 import io.silv.offlinechat.ui.PermissionRequestScreen
 import io.silv.offlinechat.ui.theme.OfflineChatTheme
 import org.koin.android.ext.android.get
@@ -41,6 +45,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
+                    Text(text = globalIp)
+                    Text(text = globalPort)
                     val permissionState = rememberMultiplePermissionsState(permissionsList())
                     if (permissionState.allPermissionsGranted) {
                         ContentMain(

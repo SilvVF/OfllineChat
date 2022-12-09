@@ -1,4 +1,4 @@
-package io.silv.offlinechat
+package io.silv.offlinechat.wifiP2p
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -63,7 +63,11 @@ class WifiP2pReceiver(
                     if (networkInfo?.isConnected == true) {
                         // We are connected with the other device, request connection
                         // info to find group owner IP
-                        manager.requestConnectionInfo(channel, connectionListener)
+                        manager.requestConnectionInfo(channel) { info ->
+                            scope.launch {
+                                connectionInfo.emit(info)
+                            }
+                        }
                     }
                 }
             }
@@ -71,12 +75,6 @@ class WifiP2pReceiver(
                 Log.d("peers", "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION ")
             }
         }
-    }
-
-    var connectionListenerCallback: ((WifiP2pInfo) -> Unit)? = null
-    private val connectionListener = WifiP2pManager.ConnectionInfoListener { info ->
-        Log.d("peers", "connectionListener info ${info.toString()}")
-        connectionListenerCallback?.invoke(info)
     }
     /**
      *  this only initiates peer discovery. starts the discovery process and then immediately returns.

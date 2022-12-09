@@ -1,7 +1,9 @@
-package io.silv.offlinechat
+package io.silv.offlinechat.di
 
 import android.content.Context
 import android.net.wifi.p2p.WifiP2pManager
+import io.silv.offlinechat.MainActivityViewModel
+import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel

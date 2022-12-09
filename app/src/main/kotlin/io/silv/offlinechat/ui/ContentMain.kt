@@ -1,16 +1,18 @@
-package io.silv.offlinechat
+package io.silv.offlinechat.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.silv.offlinechat.ui.PeerListItem
+import io.silv.offlinechat.MainActivityViewModel
+import io.silv.offlinechat.data.globalPortNumber
 
 @Composable
 fun ContentMain(
@@ -54,7 +56,19 @@ fun ContentMain(
             )
         }
         item {
-            Text(text = "Peers")
+            Text(text = "host")
+            TextField(value = viewModel.host, onValueChange = {
+                viewModel.host = it
+            })
+            Text(text = "Port")
+            TextField(value = viewModel.port.toString(), onValueChange = {
+                viewModel.port = it.toIntOrNull() ?: 0
+            })
+        }
+        item {
+            Button(onClick = { viewModel.connect() }) {
+                Text(text = "Connect")
+            }
         }
         items(peers) {
             PeerListItem(

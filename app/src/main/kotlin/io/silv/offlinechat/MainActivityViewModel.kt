@@ -3,16 +3,26 @@ package io.silv.offlinechat
 import android.net.wifi.WpsInfo
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pDevice
-import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
+import io.silv.offlinechat.wifiP2p.WifiP2pError
+import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
+
 
 class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
@@ -26,13 +36,9 @@ class MainActivityViewModel(
     private val errorChannel = receiver.mutableErrorChannel.receiveAsFlow()
     val connectionInfo = receiver.connectionInfo.asStateFlow()
 
+    var port by mutableStateOf(0)
+    var host by mutableStateOf("")
     init {
-        receiver.connectionListenerCallback = {
-            if (it.isGroupOwner)
-                setupServer(it)
-            else
-                setupClient(it)
-        }
         viewModelScope.launch {
             errorChannel.collect {error ->
                 when(error) {
@@ -50,6 +56,20 @@ class MainActivityViewModel(
         }
     }
 
+    fun connect() = viewModelScope.launch {
+        connectionInfo.first()?.let { info ->
+            when (info.isGroupOwner) {
+                true -> {
+                    setupServer(port)
+                }
+                false -> {
+                    setupClient(info.groupOwnerAddress.hostAddress ?: "", port)
+                }
+                else -> Unit
+            }
+        }
+    }
+
     fun connectToDevice(device: WifiP2pDevice) {
         viewModelScope.launch {
             val config = WifiP2pConfig().apply {
@@ -62,6 +82,7 @@ class MainActivityViewModel(
                         // WiFiDirectBroadcastReceiver notifies us. Ignore for now.
                         Log.d("peers", "onSuccess called connectTodevice()")
                     }
+
                     override fun onFailure(reason: Int) {
                         //failure logic
                         Log.d("peers", "onFailure called connectToDevice()")
@@ -71,40 +92,43 @@ class MainActivityViewModel(
         }
     }
 
-    private fun setupServer(wifiP2pInfo: WifiP2pInfo) {
-        viewModelScope.launch(Dispatchers.IO) {
-        val message = """
-            setupServer invoked:
-                    + group formed ${wifiP2pInfo.groupFormed} 
-                    + group owner address ${wifiP2pInfo.groupOwnerAddress}
-                    + is group owner ${wifiP2pInfo.isGroupOwner}
-             """.trimIndent()
-            Log.d("peers", message)
-            mutableSideEffectChannel.send(message)
-            runCatching {
-                DeviceServer(wifiP2pInfo).run()
-            }.onFailure {
-                Log.d("peers" , "server error : ${it.message}")
+    private fun setupClient(host: String, port: Int) =
+        CoroutineScope(Dispatchers.IO).launch {
+            withContext(Dispatchers.IO) {
+
+                    kotlin.runCatching {
+
+                    while (true) {
+                        val socket = Socket()
+                        socket.bind(null)
+                        socket.connect(InetSocketAddress(host, 8888))
+                        val outputStream = socket.getOutputStream()
+                        outputStream.write("hello".encodeToByteArray())
+                        println("sent message from client")
+                        outputStream.flush()
+                        socket.close()
+                    }
+                }
+            }
+        }
+
+    private fun setupServer(port: Int) = CoroutineScope(Dispatchers.IO).launch {
+        withContext(Dispatchers.IO) {
+
+            val server = ServerSocket(8888)
+
+            while (true) {
+                println("awaiting connection")
+                val client = server.accept()
+                println("Connected")
+                launch {
+                    val input = BufferedReader(InputStreamReader(client.getInputStream()))
+                    val i = input.readLines().joinToString()
+                    println("message $i")
+                    input.close()
+                    client.close()
+                }
             }
         }
     }
-
-    private fun setupClient(wifiP2pInfo: WifiP2pInfo) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val message = """
-            setupClient invoked:
-                    + group formed ${wifiP2pInfo.groupFormed} 
-                    + group owner address ${wifiP2pInfo.groupOwnerAddress}
-                    + is group owner ${wifiP2pInfo.isGroupOwner}
-             """.trimIndent()
-            Log.d("peers", message)
-            mutableSideEffectChannel.send(message)
-            runCatching {
-                DeviceClient(wifiP2pInfo).run()
-            }.onFailure {
-                Log.d("peers" , "client error : ${it.message}")
-            }
-        }
-    }
-
 }
