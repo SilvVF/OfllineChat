@@ -65,6 +65,11 @@ class WifiP2pReceiver(
                         // info to find group owner IP
                         manager.requestConnectionInfo(channel) { info ->
                             scope.launch {
+                                manager.requestGroupInfo(channel) { groupInfo ->
+                                    groupInfo.clientList.forEach { wifiP2pDevice ->
+                                        print("Devices ${wifiP2pDevice.deviceAddress}")
+                                    }
+                                }
                                 connectionInfo.emit(info)
                             }
                         }

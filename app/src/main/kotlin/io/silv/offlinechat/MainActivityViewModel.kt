@@ -10,35 +10,33 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.silv.offlinechat.data.*
 import io.silv.offlinechat.wifiP2p.WifiP2pError
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.InetSocketAddress
-import java.net.ServerSocket
-import java.net.Socket
+import kotlinx.coroutines.flow.*
 
 
 class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
     private val channel: WifiP2pManager.Channel = receiver.channel,
-    private val manager: WifiP2pManager = receiver.manager
+    private val manager: WifiP2pManager = receiver.manager,
 ): ViewModel() {
 
     val peers = receiver.peersList
-    private val mutableSideEffectChannel = Channel<String>()
-    val sideEffects = mutableSideEffectChannel.receiveAsFlow()
-    private val errorChannel = receiver.mutableErrorChannel.receiveAsFlow()
     val connectionInfo = receiver.connectionInfo.asStateFlow()
 
-    var port by mutableStateOf(0)
-    var host by mutableStateOf("")
+    private val mutableSideEffectChannel = Channel<String>()
+    val sideEffects = mutableSideEffectChannel.receiveAsFlow()
+
+    private val errorChannel = receiver.mutableErrorChannel.receiveAsFlow()
+
+    var messages by mutableStateOf(emptyList<String>())
+
+
     init {
+        listenForConnection()
         viewModelScope.launch {
             errorChannel.collect {error ->
                 when(error) {
@@ -56,19 +54,39 @@ class MainActivityViewModel(
         }
     }
 
-    fun connect() = viewModelScope.launch {
-        connectionInfo.first()?.let { info ->
-            when (info.isGroupOwner) {
-                true -> {
-                    setupServer(port)
+    private fun listenForConnection() = viewModelScope.launch {
+        connectionInfo.collect { wifiInfo ->
+            if (wifiInfo?.isGroupOwner == false) {
+                setupServer(port = 8848) { socketData ->
+                    messages = listOf(socketData) + messages
                 }
-                false -> {
-                    setupClient(info.groupOwnerAddress.hostAddress ?: "", port)
+                repeat(5) {
+                    sendMessageUsingSocket(
+                        message = Ack(),
+                        wifiInfo,
+                        onFailure = {}
+                    )
                 }
-                else -> Unit
+            } else if (wifiInfo?.isGroupOwner == true) {
+                setupServer { socketData ->
+                    messages = listOf(socketData) + messages
+                }
             }
         }
     }
+
+    fun sendMessageFromClient(m: String) = viewModelScope.launch {
+        sendMessageUsingSocket(
+            message = Message(
+                sender = "name",
+                content = m
+            ),
+            connectionInfo.value ?: return@launch
+        ) { error ->
+            mutableSideEffectChannel.send(error.message ?: "error")
+        }
+    }
+
 
     fun connectToDevice(device: WifiP2pDevice) {
         viewModelScope.launch {
@@ -88,46 +106,6 @@ class MainActivityViewModel(
                         Log.d("peers", "onFailure called connectToDevice()")
                     }
                 })
-            }
-        }
-    }
-
-    private fun setupClient(host: String, port: Int) =
-        CoroutineScope(Dispatchers.IO).launch {
-            withContext(Dispatchers.IO) {
-
-                    kotlin.runCatching {
-
-                    while (true) {
-                        val socket = Socket()
-                        socket.bind(null)
-                        socket.connect(InetSocketAddress(host, 8888))
-                        val outputStream = socket.getOutputStream()
-                        outputStream.write("hello".encodeToByteArray())
-                        println("sent message from client")
-                        outputStream.flush()
-                        socket.close()
-                    }
-                }
-            }
-        }
-
-    private fun setupServer(port: Int) = CoroutineScope(Dispatchers.IO).launch {
-        withContext(Dispatchers.IO) {
-
-            val server = ServerSocket(8888)
-
-            while (true) {
-                println("awaiting connection")
-                val client = server.accept()
-                println("Connected")
-                launch {
-                    val input = BufferedReader(InputStreamReader(client.getInputStream()))
-                    val i = input.readLines().joinToString()
-                    println("message $i")
-                    input.close()
-                    client.close()
-                }
             }
         }
     }

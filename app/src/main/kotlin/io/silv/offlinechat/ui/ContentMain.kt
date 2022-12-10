@@ -12,15 +12,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.silv.offlinechat.MainActivityViewModel
-import io.silv.offlinechat.data.globalPortNumber
 
 @Composable
 fun ContentMain(
     viewModel: MainActivityViewModel,
-    showToast: (String) -> Unit
+    showToast: (String) -> Unit,
+    navigateToMessage: () -> Unit
 ) {
     val peers by viewModel.peers.collectAsState()
     val connectionInfo by viewModel.connectionInfo.collectAsState()
+
+    LaunchedEffect(key1 = connectionInfo) {
+        if (connectionInfo?.groupFormed == true) {
+            navigateToMessage()
+        }
+    }
 
     LaunchedEffect(key1 = peers) {
         showToast("Peers Refreshed")
@@ -31,7 +37,6 @@ fun ContentMain(
             showToast(it)
         }
     }
-    var text by remember { mutableStateOf("")}
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -47,26 +52,7 @@ fun ContentMain(
             }
         }
         item {
-            TextField(
-                value = text,
-                onValueChange = {
-                    text = it
-                    globalPortNumber = it.toIntOrNull() ?: 0
-                }
-            )
-        }
-        item {
-            Text(text = "host")
-            TextField(value = viewModel.host, onValueChange = {
-                viewModel.host = it
-            })
-            Text(text = "Port")
-            TextField(value = viewModel.port.toString(), onValueChange = {
-                viewModel.port = it.toIntOrNull() ?: 0
-            })
-        }
-        item {
-            Button(onClick = { viewModel.connect() }) {
+            Button(onClick = {  }) {
                 Text(text = "Connect")
             }
         }
@@ -84,3 +70,4 @@ fun ContentMain(
         }
     }
 }
+

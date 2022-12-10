@@ -31,6 +31,7 @@ val appModule = module {
         )
     }
 
+
     viewModel {
         MainActivityViewModel(
             receiver = get(),

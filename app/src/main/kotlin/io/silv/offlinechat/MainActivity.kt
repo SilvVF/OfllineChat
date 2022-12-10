@@ -11,13 +11,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import com.google.accompanist.permissions.*
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
-import io.silv.offlinechat.data.globalIp
-import io.silv.offlinechat.data.globalPort
 import io.silv.offlinechat.ui.ContentMain
+import io.silv.offlinechat.ui.MessageScreen
 import io.silv.offlinechat.ui.PermissionRequestScreen
 import io.silv.offlinechat.ui.theme.OfflineChatTheme
 import org.koin.android.ext.android.get
@@ -36,7 +36,6 @@ class MainActivity : ComponentActivity() {
 
         val viewModel by inject<MainActivityViewModel>()
 
-
         setContent {
 
             OfflineChatTheme {
@@ -45,16 +44,22 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Text(text = globalIp)
-                    Text(text = globalPort)
                     val permissionState = rememberMultiplePermissionsState(permissionsList())
                     if (permissionState.allPermissionsGranted) {
-                        ContentMain(
-                            viewModel = viewModel,
-                            showToast = {
-                                Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
-                            }
-                        )
+                        val (s, setS) = mutableStateOf(true)
+                        if (viewModel.connectionInfo.collectAsState().value == null) {
+                            ContentMain(
+                                viewModel = viewModel,
+                                showToast = {
+                                    Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+                                },
+                                navigateToMessage = {
+                                    setS(false)
+                                }
+                            )
+                        } else {
+                            MessageScreen(viewModel = viewModel)
+                        }
                     } else {
                        PermissionRequestScreen(permissionsState = permissionState)
                     }
