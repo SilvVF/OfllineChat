@@ -1,12 +1,14 @@
 package io.silv.offlinechat.data
 
-@kotlinx.serialization.Serializable
+import kotlinx.serialization.Serializable
+
+@Serializable
 abstract class SocketData(val type: String)
 
-@kotlinx.serialization.Serializable
+@Serializable
 class Ack: SocketData("ack")
 
-@kotlinx.serialization.Serializable
+@Serializable
 data class Message(
     val content: String,
     val sender: String,

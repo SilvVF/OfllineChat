@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 
@@ -24,14 +25,17 @@ class WifiP2pReceiver(
 
     private val mutablePeersList = MutableStateFlow(emptyList<WifiP2pDevice>())
     val peersList = mutablePeersList.asStateFlow()
-    val mutableErrorChannel = Channel<WifiP2pError>()
+
+    private val mutableErrorChannel = Channel<WifiP2pError>()
+    val errorChannel = mutableErrorChannel.receiveAsFlow()
+
     val connectionInfo = MutableStateFlow<WifiP2pInfo?>(null)
 
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("peers", "onReceive invoked data ${intent.data.toString()}")
         when(intent.action) {
             WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
-                Log.d("peers", "WIFI_P2P_STATE_CHANGED_ACTION")
+                Log.d("WifiP2pReceiver", "WIFI_P2P_STATE_CHANGED_ACTION")
                 // Determine if Wi-Fi Direct mode is enabled or not, alert
                 // the Activity.
                 val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
@@ -45,31 +49,21 @@ class WifiP2pReceiver(
                 }
             }
             WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION -> {
-                Log.d("peers", "WIFI_P2P_PEERS_CHANGED_ACTION")
-                // The peer list has changed! We should probably do something about
-                // that.
+                Log.d("WifiP2pReceiver", "WIFI_P2P_PEERS_CHANGED_ACTION")
                 manager.requestPeers(channel) { peerList ->
-                    val refreshedPeers = peerList.deviceList
                     scope.launch {
-                        mutablePeersList.emit(refreshedPeers.toList())
+                        mutablePeersList.emit(peerList.deviceList.toList())
                     }
                 }
 
             }
             WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
-                Log.d("peers", "WIFI_P2P_CONNECTION_CHANGED_ACTION ")
+                Log.d("WifiP2pReceiver", "WIFI_P2P_CONNECTION_CHANGED_ACTION ")
                 manager.let { manager ->
                     val networkInfo: NetworkInfo? = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO)
                     if (networkInfo?.isConnected == true) {
-                        // We are connected with the other device, request connection
-                        // info to find group owner IP
                         manager.requestConnectionInfo(channel) { info ->
                             scope.launch {
-                                manager.requestGroupInfo(channel) { groupInfo ->
-                                    groupInfo.clientList.forEach { wifiP2pDevice ->
-                                        print("Devices ${wifiP2pDevice.deviceAddress}")
-                                    }
-                                }
                                 connectionInfo.emit(info)
                             }
                         }
@@ -77,7 +71,7 @@ class WifiP2pReceiver(
                 }
             }
             WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION -> {
-                Log.d("peers", "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION ")
+                Log.d("WifiP2pReceiver", "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION ")
             }
         }
     }
@@ -88,12 +82,12 @@ class WifiP2pReceiver(
      *  Also, discovery remains active until a connection is initiated or a P2P group is formed.
      */
     private fun discoverPeers() {
-        Log.d("peers", "discover peers")
+        Log.d("WifiP2pReceiver", "discoverPeers() invoked")
         manager.discoverPeers(
-            /*channel =*/channel,
-            /*actionListener =*/object : WifiP2pManager.ActionListener {
+            channel,
+            object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
-                    Log.d("peers", "discover peers success")
+                    Log.d("WifiP2pReceiver", "discoverPeers() success")
                 }
 
                 override fun onFailure(reasonCode: Int) {

@@ -26,8 +26,8 @@ val appModule = module {
 
     single {
         WifiP2pReceiver(
-            get(),
-            get(),
+            manager = get(),
+            channel = get(),
         )
     }
 

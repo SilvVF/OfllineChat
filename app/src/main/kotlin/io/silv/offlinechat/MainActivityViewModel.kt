@@ -30,46 +30,33 @@ class MainActivityViewModel(
     private val mutableSideEffectChannel = Channel<String>()
     val sideEffects = mutableSideEffectChannel.receiveAsFlow()
 
-    private val errorChannel = receiver.mutableErrorChannel.receiveAsFlow()
 
     var messages by mutableStateOf(emptyList<String>())
 
 
     init {
         listenForConnection()
-        viewModelScope.launch {
-            errorChannel.collect {error ->
-                when(error) {
-                    is WifiP2pError.PeerDiscoveryFailure -> viewModelScope.launch {
-                        mutableSideEffectChannel.send("Failed to Discover peers error code ${error.reasonCode}")
-                    }
-                    WifiP2pError.WifiDirectNotEnabled -> viewModelScope.launch {
-                        mutableSideEffectChannel.send("Wifi Direct Not enabled")
-                    }
-                    is WifiP2pError.DataR -> viewModelScope.launch {
-                        mutableSideEffectChannel.send(error.d)
-                    }
-                }
-            }
-        }
+        collectReceiverErrors()
     }
 
     private fun listenForConnection() = viewModelScope.launch {
         connectionInfo.collect { wifiInfo ->
-            if (wifiInfo?.isGroupOwner == false) {
-                setupServer(port = 8848) { socketData ->
-                    messages = listOf(socketData) + messages
-                }
-                repeat(5) {
-                    sendMessageUsingSocket(
-                        message = Ack(),
-                        wifiInfo,
-                        onFailure = {}
-                    )
-                }
-            } else if (wifiInfo?.isGroupOwner == true) {
-                setupServer { socketData ->
-                    messages = listOf(socketData) + messages
+            wifiInfo?.let {
+                if (wifiInfo.isGroupOwner) {
+                    setupServer { socketData ->
+                        messages = listOf(socketData) + messages
+                    }
+                } else  {
+                    setupServer(port = 8848) { socketData ->
+                        messages = listOf(socketData) + messages
+                    }
+                    repeat(5) {
+                        sendMessageUsingSocket(
+                            message = Ack(), wifiInfo,
+                        ).onFailure {
+                            mutableSideEffectChannel.send(it.message ?: "")
+                        }
+                    }
                 }
             }
         }
@@ -82,7 +69,9 @@ class MainActivityViewModel(
                 content = m
             ),
             connectionInfo.value ?: return@launch
-        ) { error ->
+        ).onSuccess {
+            messages = listOf(m) + messages
+        }.onFailure { error ->
             mutableSideEffectChannel.send(error.message ?: "error")
         }
     }
@@ -106,6 +95,17 @@ class MainActivityViewModel(
                         Log.d("peers", "onFailure called connectToDevice()")
                     }
                 })
+            }
+        }
+    }
+
+    private fun collectReceiverErrors() = viewModelScope.launch {
+        receiver.errorChannel.collect {
+            when (it) {
+                is WifiP2pError.PeerDiscoveryFailure ->
+                    mutableSideEffectChannel.send("Failed to Discover peers error code ${it.reasonCode}")
+                is WifiP2pError.WifiDirectNotEnabled -> mutableSideEffectChannel.send("Wifi Direct Not enabled")
+                is WifiP2pError.DataR -> mutableSideEffectChannel.send(it.d)
             }
         }
     }
