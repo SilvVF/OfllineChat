@@ -72,4 +72,9 @@ dependencies {
 
     // Coroutines
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4"
+
+    // 3. Android - Use Guava in your implementation only:
+    implementation("com.google.guava:guava:31.1-android")
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.5")
+
 }
