@@ -67,6 +67,10 @@ class WifiP2pReceiver(
                                 connectionInfo.emit(info)
                             }
                         }
+                    } else {
+                        scope.launch {
+                            connectionInfo.emit(null)
+                        }
                     }
                 }
             }

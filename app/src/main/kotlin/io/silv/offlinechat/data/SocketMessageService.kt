@@ -65,6 +65,7 @@ fun setupServer(
 
 
         while (true) {
+
             println("awaiting connection")
             val client = server.accept()
 
