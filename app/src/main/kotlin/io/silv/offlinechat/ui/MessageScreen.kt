@@ -14,10 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
+import androidx.core.view.isGone
 import androidx.core.widget.addTextChangedListener
 import io.silv.offlinechat.MainActivityViewModel
 import io.silv.offlinechat.data.AttachmentsRepo
 import kotlinx.coroutines.launch
+import java.io.FileNotFoundException
 
 
 @Composable
@@ -28,23 +30,23 @@ fun MessageScreen(
     var text by remember {
         mutableStateOf("")
     }
-
-    LazyColumn(Modifier.fillMaxSize()) {
-        item {
-            Button(onClick = { viewModel.sendMessageFromClient(text) }) {
-                Text(text = "send message")
+    Column(Modifier.fillMaxSize()) {
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)) {
+            ImageEditText(Modifier) {
+                text = it
             }
         }
-        items(viewModel.messages) {
-            Text(text = it)
-        }
-        item {
-            Box(modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)) {
-                ImageEditText(modifier = Modifier.fillMaxSize()) {
-                    text = it
+
+        LazyColumn(Modifier.fillMaxSize()) {
+            item {
+                Button(onClick = { viewModel.sendMessageFromClient(text) }) {
+                    Text(text = "send message")
                 }
+            }
+            items(viewModel.messages) {
+                Text(text = it)
             }
         }
     }
@@ -61,12 +63,15 @@ fun ImageEditText(
     var uriList by remember {
         mutableStateOf(emptyList<Uri>())
     }
-
-    LazyRow {
+Column(Modifier.fillMaxSize()) {
+    LazyRow(
+        Modifier
+            .fillMaxWidth()
+            .height(50.dp)) {
         items(uriList) {uri ->
             AndroidView(
                 modifier = Modifier.size(50.dp),
-                factory = { context ->  
+                factory = { context ->
                     ImageView(context).apply {
                         setImageURI(uri)
                         clipToOutline = true
@@ -77,14 +82,15 @@ fun ImageEditText(
     }
 
     AndroidView(
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize().height(50.dp),
         factory = { context ->
             // Creates view
             EditText(context).apply {
                 width = maxWidth
+                height = 50
                 // Sets up listeners for View -> Compose communication
-
-                val receiver = ImageReceiver(context, AttachmentsRepo(context))
+                val repo = AttachmentsRepo(context)
+                val receiver = ImageReceiver(repo)
 
                 scope.launch {
                     receiver.uriFlow.collect {
@@ -102,4 +108,5 @@ fun ImageEditText(
         },
         update = { }
     )
+}
 }

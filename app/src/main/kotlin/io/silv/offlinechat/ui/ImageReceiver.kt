@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 
 class ImageReceiver(
-    private val repo: AttachmentsRepo
+    val repo: AttachmentsRepo
 ): OnReceiveContentListener {
 
     private val _mutableUriFlow = MutableSharedFlow<Uri>()
@@ -39,15 +39,14 @@ class ImageReceiver(
         val contentResolver = applicationContext.contentResolver
         CoroutineScope(Dispatchers.IO).launch {
             val uris: List<Uri> = collectUris(payload.clip)
-            val localUris = mutableListOf<Uri>()
             for (uri in uris) {
                 val mimeType = contentResolver.getType(uri)
                 Log.i("uris received", "Processing URI: $uri (type: $mimeType)")
                 if (ClipDescription.compareMimeTypes(mimeType, "image/*")) {
                     // Read the image at the given URI and write it to private storage.
-                    localUris.add(repo.write(uri))
+                    // localUris.add(repo.write(uri))
+                    _mutableUriFlow.emit(uri)
                 }
-                _mutableUriFlow.emit(uri)
             }
         }
     }
