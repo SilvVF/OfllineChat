@@ -1,10 +1,12 @@
 package io.silv.offlinechat.data
 
+import android.net.Uri
 import android.net.wifi.p2p.WifiP2pInfo
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -14,8 +16,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.*
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -24,7 +25,7 @@ import java.net.Socket
 var clientAddress by mutableStateOf<InetAddress?>(null)
 
 @OptIn(InternalSerializationApi::class)
-suspend inline fun <reified T: SocketData> sendMessageUsingSocket (
+suspend inline fun <reified T: SocketData> sendSocketDataOverSocket (
     message: T,
     connectionInfo: WifiP2pInfo,
 ) = withContext(Dispatchers.IO) {
@@ -56,13 +57,12 @@ suspend inline fun <reified T: SocketData> sendMessageUsingSocket (
 }
 
 fun setupServer(
-    port: Int = 8888,
-    onReceived: suspend (String) -> Unit = { }
+    imageRepo: ImageFileRepo,
+    server: ServerSocket,
+    onImageReceived: suspend (Uri) -> Unit,
+    onReceived: suspend (String) -> Unit
 ) = CoroutineScope(Dispatchers.IO).launch {
     withContext(Dispatchers.IO) {
-
-        val server = ServerSocket(port)
-
 
         while (true) {
 
@@ -78,6 +78,12 @@ fun setupServer(
                         is Ack -> clientAddress = client.inetAddress
                         is Message -> {
                             onReceived(socketData.content)
+                        }
+                        is Image -> {
+                            val file = File.createTempFile("${System.currentTimeMillis()}", "temp")
+                            file.writeBytes(socketData.uri)
+                            val uri = imageRepo.write(file.toUri())
+                            onImageReceived(uri)
                         }
                     }
                 }.onFailure {
@@ -103,6 +109,7 @@ private fun parseJsonToSocketData(json: String): SocketData {
         val serializer = when(type) {
             "message" -> Message::class.serializer()
             "ack" -> return Ack()
+            "image" -> Image::class.serializer()
             else -> throw SerializationException("type in json does not conform to socket object types")
         }
         return Json.decodeFromString(serializer, json)

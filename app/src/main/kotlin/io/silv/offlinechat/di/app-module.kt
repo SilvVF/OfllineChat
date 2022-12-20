@@ -3,6 +3,8 @@ package io.silv.offlinechat.di
 import android.content.Context
 import android.net.wifi.p2p.WifiP2pManager
 import io.silv.offlinechat.MainActivityViewModel
+import io.silv.offlinechat.data.ImageFileRepo
+import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
@@ -31,10 +33,16 @@ val appModule = module {
         )
     }
 
+    single {
+        ImageReceiver(ImageFileRepo(androidContext()))
+    }
+
 
     viewModel {
         MainActivityViewModel(
             receiver = get(),
+            imageReceiver = get(),
+            imageRepoForMessages = ImageFileRepo(androidContext(), "message_images")
         )
     }
 }

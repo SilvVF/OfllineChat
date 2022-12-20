@@ -8,18 +8,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Button
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
-import androidx.core.view.isGone
 import androidx.core.widget.addTextChangedListener
+import io.silv.offlinechat.Chat
 import io.silv.offlinechat.MainActivityViewModel
-import io.silv.offlinechat.data.AttachmentsRepo
-import kotlinx.coroutines.launch
-import java.io.FileNotFoundException
 
 
 @Composable
@@ -34,7 +36,7 @@ fun MessageScreen(
         Box(modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)) {
-            ImageEditText(Modifier) {
+            ImageEditText(Modifier, viewModel.imageReceiver) {
                 text = it
             }
         }
@@ -46,7 +48,20 @@ fun MessageScreen(
                 }
             }
             items(viewModel.messages) {
-                Text(text = it)
+                when(it) {
+                    is Chat.Image -> {
+                        AndroidView(
+                            modifier = Modifier.size(100.dp),
+                            factory = { context ->
+                            ImageView(context).apply {
+                                setImageURI(it.uri)
+                            }
+                        })
+                    }
+                    is Chat.Message -> {
+                        Text(it.s)
+                    }
+                }
             }
         }
     }
@@ -55,14 +70,13 @@ fun MessageScreen(
 @Composable
 fun ImageEditText(
     modifier: Modifier,
+    receiver: ImageReceiver,
     onTextChange: (String) -> Unit
 ) {
 
-    val scope = rememberCoroutineScope()
 
-    var uriList by remember {
-        mutableStateOf(emptyList<Uri>())
-    }
+    val uriList by receiver.uriFlow.collectAsState()
+
 Column(Modifier.fillMaxSize()) {
     LazyRow(
         Modifier
@@ -70,7 +84,9 @@ Column(Modifier.fillMaxSize()) {
             .height(50.dp)) {
         items(uriList) {uri ->
             AndroidView(
-                modifier = Modifier.size(50.dp),
+                modifier = Modifier
+                    .size(50.dp)
+                    .fillMaxWidth(0.8f),
                 factory = { context ->
                     ImageView(context).apply {
                         setImageURI(uri)
@@ -79,24 +95,26 @@ Column(Modifier.fillMaxSize()) {
                 }
             )
         }
+        item {
+            IconButton(onClick = { receiver.backspaceImage() }) {
+                Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "backspace")
+            }
+            IconButton(onClick = { receiver.clearImages() }) {
+                Icon(imageVector = Icons.Default.Clear, contentDescription = "clear")
+            }
+        }
     }
 
     AndroidView(
-        modifier = Modifier.fillMaxSize().height(50.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .height(50.dp),
         factory = { context ->
             // Creates view
             EditText(context).apply {
                 width = maxWidth
                 height = 50
                 // Sets up listeners for View -> Compose communication
-                val repo = AttachmentsRepo(context)
-                val receiver = ImageReceiver(repo)
-
-                scope.launch {
-                    receiver.uriFlow.collect {
-                        uriList = uriList + it
-                    }
-                }
 
                 ViewCompat.setOnReceiveContentListener(
                     this, ImageReceiver.MIME_TYPES, receiver

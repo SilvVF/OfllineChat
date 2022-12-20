@@ -8,20 +8,21 @@ import android.util.Log
 import android.view.View
 import androidx.core.view.ContentInfoCompat
 import androidx.core.view.OnReceiveContentListener
-import io.silv.offlinechat.data.AttachmentsRepo
+import io.silv.offlinechat.data.ImageFileRepo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 
 class ImageReceiver(
-    val repo: AttachmentsRepo
-): OnReceiveContentListener {
+   val repo: ImageFileRepo
+) : OnReceiveContentListener {
 
-    private val _mutableUriFlow = MutableSharedFlow<Uri>()
-    val uriFlow = _mutableUriFlow.asSharedFlow()
+
+    private val _mutableUriFlow = MutableStateFlow<List<Uri>>(emptyList<Uri>())
+    val uriFlow = _mutableUriFlow.asStateFlow()
 
     override fun onReceiveContent(view: View, payload: ContentInfoCompat): ContentInfoCompat? {
         val split = payload.partition { item -> item.uri.also { println("URI $it") } != null}
@@ -44,10 +45,24 @@ class ImageReceiver(
                 Log.i("uris received", "Processing URI: $uri (type: $mimeType)")
                 if (ClipDescription.compareMimeTypes(mimeType, "image/*")) {
                     // Read the image at the given URI and write it to private storage.
-                    // localUris.add(repo.write(uri))
-                    _mutableUriFlow.emit(uri)
+                    repo.write(uri)
                 }
             }
+            _mutableUriFlow.emit(repo.allUris)
+        }
+    }
+
+    fun backspaceImage() {
+        CoroutineScope(Dispatchers.IO).launch {
+            _mutableUriFlow.emit(repo.allUris.dropLast(1))
+            repo.deleteLast()
+        }
+    }
+
+    fun clearImages() {
+        CoroutineScope(Dispatchers.IO).launch {
+            _mutableUriFlow.emit(emptyList())
+            repo.deleteAll()
         }
     }
 
@@ -64,6 +79,11 @@ class ImageReceiver(
 
     companion object {
         val MIME_TYPES = arrayOf("image/*")
+    }
+
+    sealed interface ImageUriAction {
+        object Deleted : ImageUriAction
+        object Added : ImageUriAction
     }
 }
 

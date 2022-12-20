@@ -22,6 +22,7 @@ import io.silv.offlinechat.ui.PermissionRequestScreen
 import io.silv.offlinechat.ui.theme.OfflineChatTheme
 import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
+import org.koin.androidx.compose.getViewModel
 
 
 class MainActivity : ComponentActivity() {
@@ -34,11 +35,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setWifiP2pIntents()
 
-        val viewModel by inject<MainActivityViewModel>()
-
         setContent {
-
             OfflineChatTheme {
+
+                val viewModel : MainActivityViewModel = getViewModel()
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),

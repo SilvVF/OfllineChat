@@ -34,8 +34,9 @@ import java.util.*
  * Stores attachments as files in the app's private storage directory (see
  * [Context.getDataDir], [Context.getFilesDir], etc).
  */
-class AttachmentsRepo(private val mContext: Context) {
-    private val mAttachmentsDir: File = File(mContext.filesDir, "attachments")
+class ImageFileRepo(private val mContext: Context, child: String = "attachments") {
+
+    private val mAttachmentsDir: File = File(mContext.filesDir, child)
 
     /**
      * Reads the content at the given URI and writes it to private storage. Then returns a content
@@ -65,6 +66,12 @@ class AttachmentsRepo(private val mContext: Context) {
         }
     }
 
+    fun allFiles() = mAttachmentsDir.listFiles()?.mapNotNull { it } ?: emptyList()
+
+    fun deleteLast() {
+        val lastFile  = mAttachmentsDir.listFiles()?.lastOrNull()
+        lastFile?.delete()
+    }
     fun deleteAll() {
         val files = mAttachmentsDir.listFiles() ?: return
         for (file in files) {

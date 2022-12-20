@@ -1,5 +1,6 @@
 package io.silv.offlinechat
 
+import android.net.Uri
 import android.net.wifi.WpsInfo
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pDevice
@@ -8,20 +9,27 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.net.toFile
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.silv.offlinechat.data.*
+import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pError
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
+import java.net.ServerSocket
 
-
+private var connectedAlready = false
+private var serverJob: Job? = null
 class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
     private val channel: WifiP2pManager.Channel = receiver.channel,
     private val manager: WifiP2pManager = receiver.manager,
+    val imageReceiver: ImageReceiver,
+    private val imageRepoForMessages: ImageFileRepo
 ): ViewModel() {
 
     val peers = receiver.peersList
@@ -31,48 +39,84 @@ class MainActivityViewModel(
     val sideEffects = mutableSideEffectChannel.receiveAsFlow()
 
 
-    var messages by mutableStateOf(emptyList<String>())
 
+    var messages by mutableStateOf(emptyList<Chat>())
 
     init {
         listenForConnection()
         collectReceiverErrors()
+        viewModelScope.launch {
+            messages.asFlow().collect {
+                println(it)
+            }
+        }
     }
 
     private fun listenForConnection() = viewModelScope.launch {
         connectionInfo.collect { wifiInfo ->
-            wifiInfo?.let {
-                if (wifiInfo.isGroupOwner) {
-                    setupServer { socketData ->
-                        messages = listOf(socketData) + messages
-                    }
-                } else  {
-                    setupServer(port = 8848) { socketData ->
-                        messages = listOf(socketData) + messages
-                    }
-                    repeat(5) {
-                        sendMessageUsingSocket(
-                            message = Ack(), wifiInfo,
-                        ).onFailure {
-                            mutableSideEffectChannel.send(it.message ?: "")
+            if (!connectedAlready) {
+                wifiInfo?.let {
+                    if (wifiInfo.isGroupOwner) {
+                        connectedAlready = true
+                        serverJob = setupServer(imageRepoForMessages, ServerSocket(8888), {onImage(it)}) { socketData ->
+                            messages = listOf(Chat.Message(socketData)) + messages
+                        }
+                        serverJob?.start()
+                    } else {
+                        connectedAlready = true
+                        serverJob = setupServer(imageRepoForMessages,ServerSocket(8848),{ onImage(it) }) { socketData ->
+                            messages = listOf(Chat.Message(socketData)) + messages
+                        }
+                        serverJob?.start()
+
+                        repeat(5) {
+                            sendSocketDataOverSocket(
+                                message = Ack(), wifiInfo,
+                            ).onFailure {
+                                mutableSideEffectChannel.send(it.message ?: "")
+                            }
                         }
                     }
+                } ?: run {
+                    connectedAlready = false
+                    serverJob?.cancel()
+                    serverJob = null
+                    imageRepoForMessages.deleteAll()
                 }
             }
         }
     }
 
+    private fun onImage(uri: Uri) {
+        println("onImage $uri")
+        messages = listOf(Chat.Image(uri)) + messages
+    }
+
     fun sendMessageFromClient(m: String) = viewModelScope.launch {
-        sendMessageUsingSocket(
-            message = Message(
-                sender = "name",
-                content = m
-            ),
-            connectionInfo.value ?: return@launch
-        ).onSuccess {
-            messages = listOf(m) + messages
-        }.onFailure { error ->
-            mutableSideEffectChannel.send(error.message ?: "error")
+        connectionInfo.value?.let {info ->
+            sendSocketDataOverSocket(
+                message = Message(
+                    sender = "name",
+                    content = m
+                ),
+                info
+            ).onSuccess {
+                messages = listOf(Chat.Message(m)) + messages
+            }.onFailure { error ->
+                mutableSideEffectChannel.send(error.message ?: "error")
+            }
+            for (image in imageReceiver.repo.allFiles()) {
+                sendSocketDataOverSocket(
+                    message = Image(
+                        uri =  image.readBytes() ?: return@launch,
+                        sender = "name"
+                    ),
+                    info
+                ).onSuccess {
+                    messages = listOf(Chat.Image(imageRepoForMessages.write(image.toUri()))) + messages
+                }
+            }
+            imageReceiver.clearImages()
         }
     }
 
@@ -109,4 +153,9 @@ class MainActivityViewModel(
             }
         }
     }
+}
+
+sealed class Chat {
+    data class Message(val s: String): Chat()
+    data class Image(val uri: Uri): Chat()
 }
