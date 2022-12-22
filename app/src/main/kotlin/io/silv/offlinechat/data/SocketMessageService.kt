@@ -63,7 +63,6 @@ fun setupServer(
     onImageReceived: suspend (Uri, Long) -> Unit,
     onReceived: suspend (String, Long) -> Unit
 ) = CoroutineScope(Dispatchers.IO).launch {
-    withContext(Dispatchers.IO) {
 
         while (true) {
 
@@ -74,6 +73,8 @@ fun setupServer(
             launch(Dispatchers.IO) {
                 val input = BufferedReader(InputStreamReader(client.getInputStream()))
                 val text = input.readText()
+                input.close()
+                client.close()
                 runCatching {
                     when(val socketData = parseJsonToSocketData(text)) {
                         is Ack -> clientAddress = client.inetAddress
@@ -86,18 +87,15 @@ fun setupServer(
                             val uri = imageRepo.write(
                                 file.toUri()
                             ).second
-                            file.delete()
+                            launch { file.delete() }
                             onImageReceived(uri, socketData.time)
                         }
                     }
                 }.onFailure {
                     // Received Bad message
                 }
-                input.close()
-                client.close()
             }
         }
-    }
 }
 
 @OptIn(InternalSerializationApi::class)

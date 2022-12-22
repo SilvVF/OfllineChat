@@ -12,10 +12,9 @@ import androidx.core.view.OnReceiveContentListener
 import io.silv.offlinechat.data.ImageFileRepo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.io.File
+
 
 
 class ImageReceiver(
@@ -26,14 +25,20 @@ class ImageReceiver(
 
     val uriFlow = repo.uriFlow.also { println(it) }
 
+    fun lockRepoForOp(executable: (locked: Boolean) -> Unit){
+        executable(repo.fileDeletionLock.tryLock(this))
+        repo.fileDeletionLock.unlock(this)
+    }
+
     override fun onReceiveContent(view: View, payload: ContentInfoCompat): ContentInfoCompat? {
         val split = payload.partition { item -> item.uri.also { println("URI $it") } != null }
         val uriContent = split.first
         val remaining = split.second
         uriContent?.let {
-            receive(view.context, uriContent)
+            scope.launch {
+                receive(view.context, uriContent)
+            }
         }
-        println(uriContent)
         return remaining
     }
 
@@ -55,27 +60,23 @@ class ImageReceiver(
             }
         }
 
-    private fun writeToInternal(uri: Uri, contentResolver: ContentResolver) = callbackFlow<Result<Uri>> {
+    private fun writeToInternal(uri: Uri, contentResolver: ContentResolver) = flow {
         val mimeType = contentResolver.getType(uri)
         Log.i("uris received", "Processing URI: $uri (type: $mimeType)")
         if (ClipDescription.compareMimeTypes(mimeType, "image/*")) {
             // Read the image at the given URI and write it to private storage.
-            trySend(Result.success(repo.write(uri).second))
+            emit(Result.success(repo.write(uri).second))
+        } else {
+            emit(Result.failure(Exception("Invalid mime type")))
         }
-        trySend(Result.failure(Exception("Invalid mime type")))
-        awaitClose()
     }
 
-    fun backspaceImage() {
+    suspend fun backspaceImage() {
         repo.deleteLast()
     }
 
-    fun clearImages() {
+    suspend fun clearImages() {
         repo.deleteAll()
-    }
-
-   fun getAllFiles() : List<File> {
-        return repo.allFiles()
     }
 
     private fun collectUris(clip: ClipData): List<Uri> {
@@ -91,11 +92,6 @@ class ImageReceiver(
 
     companion object {
         val MIME_TYPES = arrayOf("image/*")
-    }
-
-    sealed interface ImageUriAction {
-        object Deleted : ImageUriAction
-        object Added : ImageUriAction
     }
 }
 

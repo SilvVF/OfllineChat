@@ -104,18 +104,22 @@ class MainActivityViewModel(
     fun sendMessageFromClient(m: String) = viewModelScope.launch {
         connectionInfo.value?.let {info ->
             imageReceiver.uriFlow.firstOrNull()?.let{ uriList ->
-                uriList.forEach { localUri ->
-                    val (file, newUri) = imageRepoForMessages.write(localUri)
-                    val currTime = System.currentTimeMillis()
-                    sendSocketDataOverSocket(
-                        message = Image(
-                            uri =  file.readBytes(),
-                            sender = "name",
-                            time = currTime
-                        ),
-                        info
-                    ).onSuccess {
-                        messages = (listOf(Chat.Image(newUri, currTime)) + messages).sortedByDescending { it.t }
+                imageReceiver.lockRepoForOp { locked -> if (!locked) { return@lockRepoForOp }
+                    uriList.forEach { localUri ->
+                        launch {
+                            val (file, newUri) = imageRepoForMessages.write(localUri)
+                            val currTime = System.currentTimeMillis()
+                            sendSocketDataOverSocket(
+                                message = Image(
+                                    uri =  file.readBytes(),
+                                    sender = "name",
+                                    time = currTime
+                                ),
+                                info
+                            ).onSuccess {
+                                messages = (listOf(Chat.Image(newUri, currTime)) + messages).sortedByDescending { it.t }
+                            }
+                        }
                     }
                 }
             }
