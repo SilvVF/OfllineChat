@@ -9,8 +9,6 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.net.toFile
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.silv.offlinechat.data.*
@@ -24,12 +22,13 @@ import java.net.ServerSocket
 
 private var connectedAlready = false
 private var serverJob: Job? = null
+
 class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
     private val channel: WifiP2pManager.Channel = receiver.channel,
     private val manager: WifiP2pManager = receiver.manager,
     val imageReceiver: ImageReceiver,
-    private val imageRepoForMessages: ImageFileRepo
+    private val imageRepoForMessages: ImageFileRepo,
 ): ViewModel() {
 
     val peers = receiver.peersList
@@ -58,14 +57,24 @@ class MainActivityViewModel(
                 wifiInfo?.let {
                     if (wifiInfo.isGroupOwner) {
                         connectedAlready = true
-                        serverJob = setupServer(imageRepoForMessages, ServerSocket(8888), {onImage(it)}) { socketData ->
-                            messages = listOf(Chat.Message(socketData)) + messages
+                        serverJob = setupServer(
+                            imageRepoForMessages,
+                            ServerSocket(8888),
+                            onImageReceived =  { imageUri, time ->
+                                onImage(imageUri, time)
+                            }
+                        ) { socketData, time ->
+                            messages = listOf(Chat.Message(socketData, time)) + messages
                         }
                         serverJob?.start()
                     } else {
                         connectedAlready = true
-                        serverJob = setupServer(imageRepoForMessages,ServerSocket(8848),{ onImage(it) }) { socketData ->
-                            messages = listOf(Chat.Message(socketData)) + messages
+                        serverJob = setupServer(imageRepoForMessages,ServerSocket(8848),
+                           onImageReceived =  { imageUri, time ->
+                               onImage(imageUri, time)
+                           }
+                        ) { socketData, time ->
+                            messages = listOf(Chat.Message(socketData, time)) + messages
                         }
                         serverJob?.start()
 
@@ -87,13 +96,29 @@ class MainActivityViewModel(
         }
     }
 
-    private fun onImage(uri: Uri) {
+    private fun onImage(uri: Uri, time: Long) {
         println("onImage $uri")
-        messages = listOf(Chat.Image(uri)) + messages
+        messages = (listOf(Chat.Image(uri, time)) + messages).sortedByDescending { it.t }
     }
 
     fun sendMessageFromClient(m: String) = viewModelScope.launch {
         connectionInfo.value?.let {info ->
+            imageReceiver.uriFlow.firstOrNull()?.let{ uriList ->
+                uriList.forEach { localUri ->
+                    val (file, newUri) = imageRepoForMessages.write(localUri)
+                    val currTime = System.currentTimeMillis()
+                    sendSocketDataOverSocket(
+                        message = Image(
+                            uri =  file.readBytes(),
+                            sender = "name",
+                            time = currTime
+                        ),
+                        info
+                    ).onSuccess {
+                        messages = (listOf(Chat.Image(newUri, currTime)) + messages).sortedByDescending { it.t }
+                    }
+                }
+            }
             sendSocketDataOverSocket(
                 message = Message(
                     sender = "name",
@@ -101,21 +126,13 @@ class MainActivityViewModel(
                 ),
                 info
             ).onSuccess {
-                messages = listOf(Chat.Message(m)) + messages
+                messages = (listOf(Chat.Message(m, System.currentTimeMillis())) + messages).sortedByDescending { it.t }
             }.onFailure { error ->
                 mutableSideEffectChannel.send(error.message ?: "error")
             }
-            for (image in imageReceiver.repo.allFiles()) {
-                sendSocketDataOverSocket(
-                    message = Image(
-                        uri =  image.readBytes() ?: return@launch,
-                        sender = "name"
-                    ),
-                    info
-                ).onSuccess {
-                    messages = listOf(Chat.Image(imageRepoForMessages.write(image.toUri()))) + messages
-                }
-            }
+        }
+    }.invokeOnCompletion {
+        viewModelScope.launch {
             imageReceiver.clearImages()
         }
     }
@@ -155,7 +172,7 @@ class MainActivityViewModel(
     }
 }
 
-sealed class Chat {
-    data class Message(val s: String): Chat()
-    data class Image(val uri: Uri): Chat()
+sealed class Chat(val t: Long) {
+    data class Message(val s: String, val time: Long): Chat(time)
+    data class Image(val uri: Uri, val time: Long): Chat(time)
 }

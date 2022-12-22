@@ -1,6 +1,5 @@
 package io.silv.offlinechat.ui
 
-import android.net.Uri
 import android.widget.EditText
 import android.widget.ImageView
 import androidx.compose.foundation.layout.*
@@ -22,6 +21,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.widget.addTextChangedListener
 import io.silv.offlinechat.Chat
 import io.silv.offlinechat.MainActivityViewModel
+import kotlinx.coroutines.launch
 
 
 @Composable
@@ -36,7 +36,7 @@ fun MessageScreen(
         Box(modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)) {
-            ImageEditText(Modifier, viewModel.imageReceiver) {
+            ImageEditText(viewModel.imageReceiver) {
                 text = it
             }
         }
@@ -53,10 +53,14 @@ fun MessageScreen(
                         AndroidView(
                             modifier = Modifier.size(100.dp),
                             factory = { context ->
-                            ImageView(context).apply {
-                                setImageURI(it.uri)
+                                ImageView(context).apply {
+                                    setImageURI(it.uri)
+                                }
+                            },
+                            update = { iv ->
+                                iv.setImageURI(it.uri)
                             }
-                        })
+                        )
                     }
                     is Chat.Message -> {
                         Text(it.s)
@@ -69,13 +73,12 @@ fun MessageScreen(
 
 @Composable
 fun ImageEditText(
-    modifier: Modifier,
     receiver: ImageReceiver,
     onTextChange: (String) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
 
-
-    val uriList by receiver.uriFlow.collectAsState()
+    val uriList by receiver.uriFlow.collectAsState(emptyList())
 
 Column(Modifier.fillMaxSize()) {
     LazyRow(
@@ -92,14 +95,19 @@ Column(Modifier.fillMaxSize()) {
                         setImageURI(uri)
                         clipToOutline = true
                     }
+                },
+                update = {
+                    it.setImageURI(uri)
                 }
             )
         }
         item {
-            IconButton(onClick = { receiver.backspaceImage() }) {
+            IconButton(onClick = { scope.launch {
+                receiver.backspaceImage()
+            } }) {
                 Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "backspace")
             }
-            IconButton(onClick = { receiver.clearImages() }) {
+            IconButton(onClick = { scope.launch { receiver.clearImages() } }) {
                 Icon(imageVector = Icons.Default.Clear, contentDescription = "clear")
             }
         }

@@ -22,86 +22,87 @@ import android.net.Uri
 import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
+import androidx.core.content.FileProvider.getUriForFile
+import androidx.core.net.toUri
 import com.google.common.collect.ImmutableList
 import com.google.common.io.ByteStreams
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.*
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.*
+import kotlin.coroutines.coroutineContext
+import kotlin.math.atan
 
 
 /**
  * Stores attachments as files in the app's private storage directory (see
  * [Context.getDataDir], [Context.getFilesDir], etc).
  */
-class ImageFileRepo(private val mContext: Context, child: String = "attachments") {
+class ImageFileRepo(
+    private val context: Context,
+    private val child: String = "attachments"
+) {
 
-    private val mAttachmentsDir: File = File(mContext.filesDir, child)
+    private val attachmentsDir: File = File(context.filesDir, child)
+    private val fileEventChannel: Channel<Int> = Channel()
 
     /**
      * Reads the content at the given URI and writes it to private storage. Then returns a content
-     * URI referencing the newly written file.
+     * URI referencing the newly written file. https://developer.android.com/training/data-storage/app-specific
      */
-    fun write(uri: Uri): Uri {
-        val contentResolver = mContext.contentResolver
+    fun write(uri: Uri): Pair<File, Uri> {
+        val contentResolver = context.contentResolver
         val mimeType = contentResolver.getType(uri)
         val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
         try {
-            contentResolver.openInputStream(uri).use { `is` ->
-                requireNotNull(`is`) { uri.toString() }
-                mAttachmentsDir.mkdirs()
+            contentResolver.openInputStream(uri).use { inputStream ->
+                requireNotNull(inputStream) { uri.toString() }
+                attachmentsDir.mkdirs()
                 val fileName =
-                    "a-" + UUID.randomUUID().toString() + "." + ext
-                val newAttachment = File(mAttachmentsDir, fileName)
-                FileOutputStream(newAttachment).use { os -> ByteStreams.copy(`is`, os) }
-                val resultUri = getUriForFile(newAttachment)
+                    "${child.first()}-" + UUID.randomUUID().toString() + "." + ext
+                val newAttachment = File(attachmentsDir, fileName)
+                FileOutputStream(newAttachment).use { os -> ByteStreams.copy(inputStream, os) }
+                val resultUri = newAttachment.toUri()
                 Log.i(
                     "Logcat.TAG",
                     "Saved content: originalUri=$uri, resultUri=$resultUri"
                 )
-                return resultUri
+                fileEventChannel.trySend(1)
+                return newAttachment to resultUri
             }
         } catch (e: IOException) {
             throw IllegalStateException(e)
         }
     }
 
-    fun allFiles() = mAttachmentsDir.listFiles()?.mapNotNull { it } ?: emptyList()
+    fun allFiles() = attachmentsDir.listFiles()?.mapNotNull { it } ?: emptyList()
 
     fun deleteLast() {
-        val lastFile  = mAttachmentsDir.listFiles()?.lastOrNull()
+        val lastFile  = attachmentsDir.listFiles()?.lastOrNull()
         lastFile?.delete()
+        fileEventChannel.trySend(1)
     }
     fun deleteAll() {
-        val files = mAttachmentsDir.listFiles() ?: return
+        val files = attachmentsDir.listFiles() ?: return
         for (file in files) {
             file.delete()
         }
+        fileEventChannel.trySend(1)
     }
 
-    val allUris: ImmutableList<Uri>
-        get() {
-            val files = mAttachmentsDir.listFiles()
-            if (files == null || files.isEmpty()) {
-                return ImmutableList.of()
-            }
-            val uris: ImmutableList.Builder<Uri> =
-                ImmutableList.builderWithExpectedSize(
-                    files.size
-                )
-            for (file in files) {
-                uris.add(getUriForFile(file))
-            }
-            return uris.build()
-        }
+    val uriFlow: StateFlow<List<Uri>> = fileEventChannel.receiveAsFlow().map { event ->
+         allUris.first()
+    }.stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.Eagerly, emptyList())
 
-    private fun getUriForFile(file: File): Uri {
-        return FileProvider.getUriForFile(mContext, FILE_PROVIDER_AUTHORITY, file)
-    }
-
-    companion object {
-        // This matches the name declared in AndroidManifest.xml
-        private const val FILE_PROVIDER_AUTHORITY =
-            "androidx.appcompat.demo.receivecontent.fileprovider"
-    }
+    val allUris: Flow<List<Uri>> = flow {
+            emit(
+                attachmentsDir.listFiles()?.mapNotNull {
+                    it.toUri()
+                } ?: emptyList<Uri>()
+            )
+    }.flowOn(Dispatchers.IO)
 }

@@ -2,6 +2,7 @@ package io.silv.offlinechat.ui
 
 import android.content.ClipData
 import android.content.ClipDescription
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -11,21 +12,22 @@ import androidx.core.view.OnReceiveContentListener
 import io.silv.offlinechat.data.ImageFileRepo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 
 
 class ImageReceiver(
-   val repo: ImageFileRepo
+   private val repo: ImageFileRepo,
+   private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) : OnReceiveContentListener {
 
 
-    private val _mutableUriFlow = MutableStateFlow<List<Uri>>(emptyList<Uri>())
-    val uriFlow = _mutableUriFlow.asStateFlow()
+    val uriFlow = repo.uriFlow.also { println(it) }
 
     override fun onReceiveContent(view: View, payload: ContentInfoCompat): ContentInfoCompat? {
-        val split = payload.partition { item -> item.uri.also { println("URI $it") } != null}
+        val split = payload.partition { item -> item.uri.also { println("URI $it") } != null }
         val uriContent = split.first
         val remaining = split.second
         uriContent?.let {
@@ -35,35 +37,45 @@ class ImageReceiver(
         return remaining
     }
 
+
     private fun receive(context: Context, payload: ContentInfoCompat) {
-        val applicationContext = context.applicationContext
-        val contentResolver = applicationContext.contentResolver
-        CoroutineScope(Dispatchers.IO).launch {
+            val applicationContext = context.applicationContext
+            val contentResolver = applicationContext.contentResolver
             val uris: List<Uri> = collectUris(payload.clip)
             for (uri in uris) {
-                val mimeType = contentResolver.getType(uri)
-                Log.i("uris received", "Processing URI: $uri (type: $mimeType)")
-                if (ClipDescription.compareMimeTypes(mimeType, "image/*")) {
-                    // Read the image at the given URI and write it to private storage.
-                    repo.write(uri)
+                scope.launch {
+                    writeToInternal(uri, contentResolver).collect { result ->
+                        result.onSuccess {
+                            Log.i("uris received", "Processing URI: ${it}")
+                        }.onFailure {
+                            Log.i("uris failed", "Processing URI: ${it.message}")
+                        }
+                    }
                 }
             }
-            _mutableUriFlow.emit(repo.allUris)
         }
+
+    private fun writeToInternal(uri: Uri, contentResolver: ContentResolver) = callbackFlow<Result<Uri>> {
+        val mimeType = contentResolver.getType(uri)
+        Log.i("uris received", "Processing URI: $uri (type: $mimeType)")
+        if (ClipDescription.compareMimeTypes(mimeType, "image/*")) {
+            // Read the image at the given URI and write it to private storage.
+            trySend(Result.success(repo.write(uri).second))
+        }
+        trySend(Result.failure(Exception("Invalid mime type")))
+        awaitClose()
     }
 
     fun backspaceImage() {
-        CoroutineScope(Dispatchers.IO).launch {
-            _mutableUriFlow.emit(repo.allUris.dropLast(1))
-            repo.deleteLast()
-        }
+        repo.deleteLast()
     }
 
     fun clearImages() {
-        CoroutineScope(Dispatchers.IO).launch {
-            _mutableUriFlow.emit(emptyList())
-            repo.deleteAll()
-        }
+        repo.deleteAll()
+    }
+
+   fun getAllFiles() : List<File> {
+        return repo.allFiles()
     }
 
     private fun collectUris(clip: ClipData): List<Uri> {

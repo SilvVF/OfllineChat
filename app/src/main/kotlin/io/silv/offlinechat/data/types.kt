@@ -3,7 +3,9 @@ package io.silv.offlinechat.data
 import kotlinx.serialization.Serializable
 
 @Serializable
-abstract class SocketData(val type: String)
+abstract class SocketData(
+    val type: String,
+)
 
 @Serializable
 class Ack: SocketData("ack")
@@ -12,12 +14,14 @@ class Ack: SocketData("ack")
 data class Message(
     val content: String,
     val sender: String,
+    val time: Long = System.currentTimeMillis()
 ) : SocketData("message")
 
 @Serializable
 data class Image(
     val uri: ByteArray,
-    val sender: String
+    val sender: String,
+    val time: Long = System.currentTimeMillis()
 ): SocketData("image") {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

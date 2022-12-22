@@ -21,6 +21,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.UUID
 
 var clientAddress by mutableStateOf<InetAddress?>(null)
 
@@ -59,8 +60,8 @@ suspend inline fun <reified T: SocketData> sendSocketDataOverSocket (
 fun setupServer(
     imageRepo: ImageFileRepo,
     server: ServerSocket,
-    onImageReceived: suspend (Uri) -> Unit,
-    onReceived: suspend (String) -> Unit
+    onImageReceived: suspend (Uri, Long) -> Unit,
+    onReceived: suspend (String, Long) -> Unit
 ) = CoroutineScope(Dispatchers.IO).launch {
     withContext(Dispatchers.IO) {
 
@@ -77,13 +78,16 @@ fun setupServer(
                     when(val socketData = parseJsonToSocketData(text)) {
                         is Ack -> clientAddress = client.inetAddress
                         is Message -> {
-                            onReceived(socketData.content)
+                            onReceived(socketData.content, socketData.time)
                         }
                         is Image -> {
-                            val file = File.createTempFile("${System.currentTimeMillis()}", "temp")
+                            val file = File.createTempFile("temp-image", "${UUID.randomUUID()}")
                             file.writeBytes(socketData.uri)
-                            val uri = imageRepo.write(file.toUri())
-                            onImageReceived(uri)
+                            val uri = imageRepo.write(
+                                file.toUri()
+                            ).second
+                            file.delete()
+                            onImageReceived(uri, socketData.time)
                         }
                     }
                 }.onFailure {
