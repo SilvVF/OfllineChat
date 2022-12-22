@@ -55,7 +55,6 @@ class WifiP2pReceiver(
                         mutablePeersList.emit(peerList.deviceList.toList())
                     }
                 }
-
             }
             WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
                 Log.d("WifiP2pReceiver", "WIFI_P2P_CONNECTION_CHANGED_ACTION ")
@@ -70,6 +69,7 @@ class WifiP2pReceiver(
                     } else {
                         scope.launch {
                             connectionInfo.emit(null)
+                            discoverPeers()
                         }
                     }
                 }

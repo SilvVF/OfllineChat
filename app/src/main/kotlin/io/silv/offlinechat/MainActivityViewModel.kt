@@ -38,7 +38,6 @@ class MainActivityViewModel(
     val sideEffects = mutableSideEffectChannel.receiveAsFlow()
 
 
-
     var messages by mutableStateOf(emptyList<Chat>())
 
     init {
@@ -52,49 +51,49 @@ class MainActivityViewModel(
     }
 
     private fun listenForConnection() = viewModelScope.launch {
-        connectionInfo.collect { wifiInfo ->
-            if (!connectedAlready) {
-                wifiInfo?.let {
-                    if (wifiInfo.isGroupOwner) {
-                        connectedAlready = true
-                        serverJob = setupServer(
-                            imageRepoForMessages,
-                            ServerSocket(8888),
-                            onImageReceived =  { imageUri, time ->
-                                onImage(imageUri, time)
-                            }
-                        ) { socketData, time ->
-                            messages = listOf(Chat.Message(socketData, time)) + messages
+        connectionInfo.collectLatest { wifiInfo ->
+            wifiInfo?.let {
+                if (connectedAlready) {
+                    return@collectLatest
+                }
+                connectedAlready = true
+                if (wifiInfo.isGroupOwner) {
+                    if (serverJob == null)
+                    serverJob = setupServer(
+                        imageRepoForMessages,
+                        8888,
+                        onImageReceived = { imageUri, time ->
+                            onImage(imageUri, time)
                         }
-                        serverJob?.start()
-                    } else {
-                        connectedAlready = true
-                        serverJob = setupServer(imageRepoForMessages,ServerSocket(8848),
-                           onImageReceived =  { imageUri, time ->
-                               onImage(imageUri, time)
-                           }
-                        ) { socketData, time ->
-                            messages = listOf(Chat.Message(socketData, time)) + messages
+                    ) { socketData, time ->
+                        messages = listOf(Chat.Message(socketData, time)) + messages
+                    }
+                } else {
+                    if (serverJob == null)
+                    serverJob = setupServer(
+                        imageRepoForMessages,
+                        8848,
+                        onImageReceived = { imageUri, time ->
+                            onImage(imageUri, time)
                         }
-                        serverJob?.start()
-
-                        repeat(5) {
-                            sendSocketDataOverSocket(
-                                message = Ack(), wifiInfo,
-                            ).onFailure {
-                                mutableSideEffectChannel.send(it.message ?: "")
-                            }
+                    ) { socketData, time ->
+                        messages = listOf(Chat.Message(socketData, time)) + messages
+                    }
+                    repeat(5) {
+                        sendSocketDataOverSocket(
+                            message = Ack(), wifiInfo,
+                        ).onFailure {
+                            mutableSideEffectChannel.send(it.message ?: "")
                         }
                     }
-                } ?: run {
-                    connectedAlready = false
-                    serverJob?.cancel()
-                    serverJob = null
-                    imageRepoForMessages.deleteAll()
                 }
+            } ?: run {
+                connectedAlready = false
+                imageRepoForMessages.deleteAll()
             }
         }
     }
+
 
     private fun onImage(uri: Uri, time: Long) {
         println("onImage $uri")

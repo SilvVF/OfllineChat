@@ -31,7 +31,9 @@ suspend inline fun <reified T: SocketData> sendSocketDataOverSocket (
     connectionInfo: WifiP2pInfo,
 ) = withContext(Dispatchers.IO) {
         runCatching {
+
                 val socket = Socket()
+                socket.reuseAddress = true
                 socket.bind(null)
 
                 val (serverAddress, serverPort) = if (connectionInfo.isGroupOwner){
@@ -39,6 +41,8 @@ suspend inline fun <reified T: SocketData> sendSocketDataOverSocket (
                 } else {
                     connectionInfo.groupOwnerAddress to 8888
                 }
+                Log.d("socket info", "$serverAddress $serverPort")
+
 
                 socket.connect(
                     InetSocketAddress(
@@ -59,10 +63,15 @@ suspend inline fun <reified T: SocketData> sendSocketDataOverSocket (
 
 fun setupServer(
     imageRepo: ImageFileRepo,
-    server: ServerSocket,
+    port: Int,
     onImageReceived: suspend (Uri, Long) -> Unit,
     onReceived: suspend (String, Long) -> Unit
 ) = CoroutineScope(Dispatchers.IO).launch {
+    withContext(Dispatchers.IO) {
+
+        val server = ServerSocket()
+        server.reuseAddress = true
+        server.bind(InetSocketAddress(port))
 
         while (true) {
 
@@ -77,11 +86,15 @@ fun setupServer(
                 client.close()
                 runCatching {
                     when(val socketData = parseJsonToSocketData(text)) {
-                        is Ack -> clientAddress = client.inetAddress
+                        is Ack -> {
+                            clientAddress = client.inetAddress
+                        }
                         is Message -> {
+                            //clientAddress = client.inetAddress
                             onReceived(socketData.content, socketData.time)
                         }
                         is Image -> {
+                            //clientAddress = client.inetAddress
                             val file = File.createTempFile("temp-image", "${UUID.randomUUID()}")
                             file.writeBytes(socketData.uri)
                             val uri = imageRepo.write(
@@ -96,6 +109,7 @@ fun setupServer(
                 }
             }
         }
+    }
 }
 
 @OptIn(InternalSerializationApi::class)
