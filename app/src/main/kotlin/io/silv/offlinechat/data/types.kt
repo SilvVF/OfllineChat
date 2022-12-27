@@ -1,11 +1,14 @@
 package io.silv.offlinechat.data
 
+import android.net.Uri
 import kotlinx.serialization.Serializable
 
 @Serializable
 abstract class SocketData(
     val type: String,
 )
+
+interface LocalData
 
 @Serializable
 class Ack: SocketData("ack")
@@ -15,11 +18,11 @@ data class Message(
     val content: String,
     val sender: String,
     val time: Long = System.currentTimeMillis()
-) : SocketData("message")
+) : SocketData("message"), LocalData
 
 @Serializable
 data class Image(
-    val uri: ByteArray,
+    val bytes: ByteArray,
     val sender: String,
     val time: Long = System.currentTimeMillis()
 ): SocketData("image") {
@@ -29,15 +32,19 @@ data class Image(
 
         other as Image
 
-        if (!uri.contentEquals(other.uri)) return false
+        if (!bytes.contentEquals(other.bytes)) return false
         if (sender != other.sender) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = uri.contentHashCode()
+        var result = bytes.contentHashCode()
         result = 31 * result + sender.hashCode()
         return result
     }
 }
+
+data class LocalImage(
+    val uri: Uri
+): LocalData

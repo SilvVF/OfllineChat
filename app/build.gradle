@@ -73,6 +73,14 @@ dependencies {
     // Coroutines
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4"
 
+    implementation("io.ktor:ktor-network:$ktor_version")
+    implementation("io.ktor:ktor-server-websockets:$ktor_version")
+    implementation("io.ktor:ktor-client-websockets:$ktor_version")
+    implementation("io.ktor:ktor-server-core:$ktor_version")
+    implementation("io.ktor:ktor-server-netty:$ktor_version")
+
+
+
     // 3. Android - Use Guava in your implementation only:
     implementation("com.google.guava:guava:31.1-android")
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.5")

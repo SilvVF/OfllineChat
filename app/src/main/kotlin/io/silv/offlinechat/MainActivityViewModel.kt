@@ -18,19 +18,18 @@ import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
-import java.net.ServerSocket
 
 private var connectedAlready = false
 private var serverJob: Job? = null
 
 class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
-    private val channel: WifiP2pManager.Channel = receiver.channel,
-    private val manager: WifiP2pManager = receiver.manager,
     val imageReceiver: ImageReceiver,
     private val imageRepoForMessages: ImageFileRepo,
 ): ViewModel() {
 
+    private val channel = receiver.channel
+    private val manager = receiver.manager
     val peers = receiver.peersList
     val connectionInfo = receiver.connectionInfo.asStateFlow()
 
@@ -39,6 +38,9 @@ class MainActivityViewModel(
 
 
     var messages by mutableStateOf(emptyList<Chat>())
+
+    private var server: KtorSocketsServer? = null
+    private var client: KtorSocketsClient? = null
 
     init {
         listenForConnection()
@@ -52,45 +54,27 @@ class MainActivityViewModel(
 
     private fun listenForConnection() = viewModelScope.launch {
         connectionInfo.collectLatest { wifiInfo ->
-            wifiInfo?.let {
-                if (connectedAlready) {
-                    return@collectLatest
-                }
-                connectedAlready = true
+            wifiInfo?.let { info ->
+                val groupOwnerAddress = info.groupOwnerAddress.hostAddress ?: "127.0.0.1"
+                println(info.groupOwnerAddress.hostAddress)
                 if (wifiInfo.isGroupOwner) {
-                    if (serverJob == null)
-                    serverJob = setupServer(
-                        imageRepoForMessages,
-                        8888,
-                        onImageReceived = { imageUri, time ->
-                            onImage(imageUri, time)
-                        }
-                    ) { socketData, time ->
-                        messages = listOf(Chat.Message(socketData, time)) + messages
+                    server = KtorSocketsServer().also { serverSocket ->
+                        serverSocket.startServer(8888,  groupOwnerAddress)
                     }
                 } else {
-                    if (serverJob == null)
-                    serverJob = setupServer(
-                        imageRepoForMessages,
-                        8848,
-                        onImageReceived = { imageUri, time ->
-                            onImage(imageUri, time)
-                        }
-                    ) { socketData, time ->
-                        messages = listOf(Chat.Message(socketData, time)) + messages
-                    }
-                    repeat(5) {
-                        sendSocketDataOverSocket(
-                            message = Ack(), wifiInfo,
-                        ).onFailure {
-                            mutableSideEffectChannel.send(it.message ?: "")
-                        }
+                    client = KtorSocketsClient().also { clientSocket ->
+                        clientSocket.startClient(8888, groupOwnerAddress)
                     }
                 }
-            } ?: run {
-                connectedAlready = false
-                imageRepoForMessages.deleteAll()
             }
+        }
+    }
+
+    fun sendMessageUsingKtor(message: String) = viewModelScope.launch {
+        if (client != null) {
+            client?.sendSocketDataOverSocket(Message("dfjaslkf", "dkfjaksfjdkl"))
+        } else {
+            server?.sendMesssage("dfadfasfdasdfas")
         }
     }
 
@@ -110,7 +94,7 @@ class MainActivityViewModel(
                             val currTime = System.currentTimeMillis()
                             sendSocketDataOverSocket(
                                 message = Image(
-                                    uri =  file.readBytes(),
+                                    bytes =  file.readBytes(),
                                     sender = "name",
                                     time = currTime
                                 ),
@@ -174,7 +158,44 @@ class MainActivityViewModel(
         }
     }
 }
-
+//if (connectedAlready) {
+//    return@collectLatest
+//}
+//connectedAlready = true
+//if (wifiInfo.isGroupOwner) {
+//    if (serverJob == null)
+//        serverJob = setupServer(
+//            imageRepoForMessages,
+//            8888,
+//            onImageReceived = { imageUri, time ->
+//                onImage(imageUri, time)
+//            }
+//        ) { socketData, time ->
+//            messages = listOf(Chat.Message(socketData, time)) + messages
+//        }
+//} else {
+//    if (serverJob == null)
+//        serverJob = setupServer(
+//            imageRepoForMessages,
+//            8848,
+//            onImageReceived = { imageUri, time ->
+//                onImage(imageUri, time)
+//            }
+//        ) { socketData, time ->
+//            messages = listOf(Chat.Message(socketData, time)) + messages
+//        }
+//    repeat(5) {
+//        sendSocketDataOverSocket(
+//            message = Ack(), wifiInfo,
+//        ).onFailure {
+//            mutableSideEffectChannel.send(it.message ?: "")
+//        }
+//    }
+//}
+//} ?: run {
+//    connectedAlready = false
+//    imageRepoForMessages.deleteAll()
+//}
 sealed class Chat(val t: Long) {
     data class Message(val s: String, val time: Long): Chat(time)
     data class Image(val uri: Uri, val time: Long): Chat(time)

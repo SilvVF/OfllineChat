@@ -14,6 +14,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -69,7 +70,7 @@ class ImageFileRepo(
     }
 
     suspend fun deleteLast() {
-        fileDeletionLock.awaitUnlock {
+        fileDeletionLock.withLock {
             val lastFile  = attachmentsDir.listFiles()?.lastOrNull()
             if(lastFile?.delete() == true) {
                 fileEventChannel.trySend(DeletedLast)
@@ -77,8 +78,8 @@ class ImageFileRepo(
         }
     }
    suspend fun deleteAll() {
-       fileDeletionLock.awaitUnlock {
-           val files = attachmentsDir.listFiles() ?: return@awaitUnlock
+       fileDeletionLock.withLock {
+           val files = attachmentsDir.listFiles() ?: return
            for ((i, file) in files.withIndex()) {
                if (file.delete()) {
                    fileEventChannel.trySend(DeletedAt(i))
@@ -98,22 +99,4 @@ class ImageFileRepo(
                 } ?: emptyList<Uri>()
             )
     }.flowOn(Dispatchers.IO)
-
-}
-
-suspend fun Mutex.awaitUnlock(timeoutSeconds:Int = 20,  onUnlock:() -> Unit) {
-    val timer = flow<Int> {
-        val i = 0
-        while (true) {
-            emit(i)
-            delay(1000)
-        }
-    }.stateIn(CoroutineScope(Dispatchers.Default), SharingStarted.Eagerly, 0)
-    while (this.isLocked) {
-        if (timer.value == timeoutSeconds) {
-            return
-        }
-        continue
-    }
-    onUnlock()
 }

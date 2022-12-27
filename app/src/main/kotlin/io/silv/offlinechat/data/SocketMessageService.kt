@@ -96,7 +96,7 @@ fun setupServer(
                         is Image -> {
                             //clientAddress = client.inetAddress
                             val file = File.createTempFile("temp-image", "${UUID.randomUUID()}")
-                            file.writeBytes(socketData.uri)
+                            file.writeBytes(socketData.bytes)
                             val uri = imageRepo.write(
                                 file.toUri()
                             ).second

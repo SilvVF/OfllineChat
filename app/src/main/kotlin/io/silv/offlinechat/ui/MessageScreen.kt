@@ -43,7 +43,7 @@ fun MessageScreen(
 
         LazyColumn(Modifier.fillMaxSize()) {
             item {
-                Button(onClick = { viewModel.sendMessageFromClient(text) }) {
+                Button(onClick = { viewModel.sendMessageUsingKtor(text) }) {
                     Text(text = "send message")
                 }
             }
