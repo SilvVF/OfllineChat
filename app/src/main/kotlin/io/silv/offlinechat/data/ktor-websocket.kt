@@ -1,6 +1,7 @@
 package io.silv.offlinechat.data
 
 
+import android.util.Log
 import androidx.core.net.toUri
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -16,7 +17,6 @@ import io.ktor.server.websocket.*
 import io.ktor.server.websocket.WebSockets
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.SerializationException
@@ -34,7 +34,7 @@ private suspend fun onReceived(data: SocketData, imageFileRepo: ImageFileRepo, m
             mutableLocalDataFlow.emit(data)
         }
         is Ack -> {
-
+            Log.d("Received", data.toString())
         }
         is Image -> {
             withContext(Dispatchers.IO) {
