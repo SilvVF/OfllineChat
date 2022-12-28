@@ -13,13 +13,10 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
@@ -129,7 +126,7 @@ fun PeerListItem(
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun PermissionRequestScreen(permissionsState: MultiplePermissionsState) {
+fun OnboardPermissionScreen(permissionsState: MultiplePermissionsState) {
     if (permissionsState.allPermissionsGranted) {
         // If all permissions are granted, then show screen with the feature enabled
         Text("Camera and Read storage permissions Granted! Thank you!")

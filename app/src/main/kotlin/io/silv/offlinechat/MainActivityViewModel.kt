@@ -43,8 +43,9 @@ class MainActivityViewModel(
     var messages by mutableStateOf(emptyList<Chat>())
 
     var server: Boolean = false
+        private set
     var client: Boolean = false
-
+        private set
     init {
         listenForConnection()
         collectReceiverErrors()
@@ -159,7 +160,9 @@ class MainActivityViewModel(
         receiver.errorChannel.collect {
             when (it) {
                 is WifiP2pError.PeerDiscoveryFailure ->
-                    mutableSideEffectChannel.send("Failed to Discover peers error code ${it.reasonCode}")
+                    mutableSideEffectChannel.send(
+                        "Failed to Discover peers error code ${it.reasonCode}"
+                    )
                 is WifiP2pError.WifiDirectNotEnabled -> mutableSideEffectChannel.send("Wifi Direct Not enabled")
                 is WifiP2pError.DataR -> mutableSideEffectChannel.send(it.d)
             }
