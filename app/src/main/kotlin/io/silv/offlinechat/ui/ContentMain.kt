@@ -11,7 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.silv.offlinechat.MainActivityViewModel
+import kotlinx.coroutines.delay
+import org.koin.androidx.compose.get
 
 @Composable
 fun ContentMain(
@@ -37,36 +40,48 @@ fun ContentMain(
             showToast(it)
         }
     }
+    val baseText = "Searching for peer devices"
+    var devicesFound by remember {
+        mutableStateOf(baseText)
+    }
+    LaunchedEffect(key1 = true) {
+        fun getDots(i: Int): String {
+            return when(i) {
+                1 -> "."
+                2 -> ".."
+                else -> "..."
+            }
+        }
+        var i = 0
+        while (true) {
+            if (i >= 3) {
+                i = 0
+            }
+            delay(250)
+            devicesFound = baseText + getDots(i)
+            i++
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Start
     ) {
-        item {
-            Column {
-                Text(text = "Connection Info")
-                if (connectionInfo != null) {
-                    Text(text = connectionInfo.toString())
-                }
-            }
-        }
-        item {
-            Button(onClick = {  }) {
-                Text(text = "Connect")
-            }
+        item { 
+            Text(text = devicesFound, modifier = Modifier.padding(8.dp), fontSize = 22.sp)
         }
         items(peers) {
-            PeerListItem(
-                device = it,
+            DeviceConnectionCard(
+                deviceName = it.deviceName,
+                deviceAddress = it.deviceAddress,
+                deviceType = it.primaryDeviceType,
+                onConnectClicked = {viewModel.connectToDevice(it)},
                 modifier = Modifier
-                    .clickable {
-                        viewModel.connectToDevice(it)
-                    }
-                    .fillMaxWidth(0.75f)
-                    .wrapContentHeight()
+                    .height(60.dp)
+                    .fillMaxWidth()
+                    .padding(4.dp)
             )
-            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
