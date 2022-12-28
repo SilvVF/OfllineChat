@@ -18,6 +18,7 @@ import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
+import java.time.LocalDateTime
 
 private var connectedAlready = false
 private var serverJob: Job? = null
@@ -26,6 +27,8 @@ class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
     val imageReceiver: ImageReceiver,
     private val imageRepoForMessages: ImageFileRepo,
+    private val ktorWebsocketServer: KtorWebsocketServer,
+    private val ktorWebsocketClient: KtorWebsocketClient
 ): ViewModel() {
 
     private val channel = receiver.channel
@@ -39,8 +42,8 @@ class MainActivityViewModel(
 
     var messages by mutableStateOf(emptyList<Chat>())
 
-    private var server: KtorSocketsServer? = null
-    private var client: KtorSocketsClient? = null
+    var server: Boolean = false
+    var client: Boolean = false
 
     init {
         listenForConnection()
@@ -58,72 +61,77 @@ class MainActivityViewModel(
                 val groupOwnerAddress = info.groupOwnerAddress.hostAddress ?: "127.0.0.1"
                 println(info.groupOwnerAddress.hostAddress)
                 if (wifiInfo.isGroupOwner) {
-                    server = KtorSocketsServer().also { serverSocket ->
-                        serverSocket.startServer(8888,  groupOwnerAddress)
+                    server = true
+                    ktorWebsocketServer.start(8888, groupOwnerAddress)
+                    ktorWebsocketServer.subscribeToSocketData {
+                        receivedLocalData(it)
                     }
                 } else {
-                    client = KtorSocketsClient().also { clientSocket ->
-                        clientSocket.startClient(8888, groupOwnerAddress)
+                    client = true
+                    delay(2000)
+                    launch {  ktorWebsocketClient.connect(8888, groupOwnerAddress) }
+                    ktorWebsocketClient.subscribeToSocketData {
+                        Log.d("Received", it.toString())
+                        receivedLocalData(it)
                     }
+                }
+            }
+        }
+    }
+
+    private fun receivedLocalData(localData: LocalData) {
+        when(localData) {
+            is Message -> {
+                messages = buildList {
+                    add(Chat.Message(localData.content, System.currentTimeMillis()))
+                    addAll(messages)
+                }
+            }
+            is LocalImage -> {
+                messages = buildList {
+                    add(Chat.Image(localData.uri, System.currentTimeMillis()))
+                    addAll(messages)
                 }
             }
         }
     }
 
     fun sendMessageUsingKtor(message: String) = viewModelScope.launch {
-        if (client != null) {
-            client?.sendSocketDataOverSocket(Message("dfjaslkf", "dkfjaksfjdkl"))
-        } else {
-            server?.sendMesssage("dfadfasfdasdfas")
+        if (client) {
+            ktorWebsocketClient.sendMessage(Message(message, "client"))
+        } else if (server) {
+            ktorWebsocketServer.sendMessage(Message(message, "server"))
         }
-    }
-
-
-    private fun onImage(uri: Uri, time: Long) {
-        println("onImage $uri")
-        messages = (listOf(Chat.Image(uri, time)) + messages).sortedByDescending { it.t }
-    }
-
-    fun sendMessageFromClient(m: String) = viewModelScope.launch {
-        connectionInfo.value?.let {info ->
-            imageReceiver.uriFlow.firstOrNull()?.let{ uriList ->
-                imageReceiver.lockRepoForOp { locked -> if (!locked) { return@lockRepoForOp }
-                    uriList.forEach { localUri ->
-                        launch {
-                            val (file, newUri) = imageRepoForMessages.write(localUri)
-                            val currTime = System.currentTimeMillis()
-                            sendSocketDataOverSocket(
-                                message = Image(
-                                    bytes =  file.readBytes(),
-                                    sender = "name",
-                                    time = currTime
-                                ),
-                                info
-                            ).onSuccess {
-                                messages = (listOf(Chat.Image(newUri, currTime)) + messages).sortedByDescending { it.t }
-                            }
+        messages = buildList {
+            add(Chat.Message(message, System.currentTimeMillis()))
+            addAll(messages)
+        }
+        imageReceiver.getLocalUrisForSend(
+            onCompletion = { imageReceiver.clearImages() }
+        ) { attachmentUris ->
+            launch {
+                attachmentUris.forEach { aUri ->
+                    launch {
+                        val time = System.currentTimeMillis()
+                        val (file, uri) = imageRepoForMessages.write(aUri)
+                        val image = Image(
+                            bytes = file.readBytes(),
+                            sender = "sender", time = time
+                        )
+                        if (client) {
+                            ktorWebsocketClient.sendImage(image)
+                        } else if (server) {
+                            ktorWebsocketServer.sendImage(image)
+                        }
+                        messages = buildList {
+                            add(Chat.Image(uri, time))
+                            addAll(messages)
                         }
                     }
                 }
-            }
-            sendSocketDataOverSocket(
-                message = Message(
-                    sender = "name",
-                    content = m
-                ),
-                info
-            ).onSuccess {
-                messages = (listOf(Chat.Message(m, System.currentTimeMillis())) + messages).sortedByDescending { it.t }
-            }.onFailure { error ->
-                mutableSideEffectChannel.send(error.message ?: "error")
-            }
-        }
-    }.invokeOnCompletion {
-        viewModelScope.launch {
-            imageReceiver.clearImages()
+            }.join()
         }
     }
-
 
     fun connectToDevice(device: WifiP2pDevice) {
         viewModelScope.launch {
@@ -158,44 +166,6 @@ class MainActivityViewModel(
         }
     }
 }
-//if (connectedAlready) {
-//    return@collectLatest
-//}
-//connectedAlready = true
-//if (wifiInfo.isGroupOwner) {
-//    if (serverJob == null)
-//        serverJob = setupServer(
-//            imageRepoForMessages,
-//            8888,
-//            onImageReceived = { imageUri, time ->
-//                onImage(imageUri, time)
-//            }
-//        ) { socketData, time ->
-//            messages = listOf(Chat.Message(socketData, time)) + messages
-//        }
-//} else {
-//    if (serverJob == null)
-//        serverJob = setupServer(
-//            imageRepoForMessages,
-//            8848,
-//            onImageReceived = { imageUri, time ->
-//                onImage(imageUri, time)
-//            }
-//        ) { socketData, time ->
-//            messages = listOf(Chat.Message(socketData, time)) + messages
-//        }
-//    repeat(5) {
-//        sendSocketDataOverSocket(
-//            message = Ack(), wifiInfo,
-//        ).onFailure {
-//            mutableSideEffectChannel.send(it.message ?: "")
-//        }
-//    }
-//}
-//} ?: run {
-//    connectedAlready = false
-//    imageRepoForMessages.deleteAll()
-//}
 sealed class Chat(val t: Long) {
     data class Message(val s: String, val time: Long): Chat(time)
     data class Image(val uri: Uri, val time: Long): Chat(time)

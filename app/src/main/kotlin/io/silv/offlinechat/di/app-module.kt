@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.wifi.p2p.WifiP2pManager
 import io.silv.offlinechat.MainActivityViewModel
 import io.silv.offlinechat.data.ImageFileRepo
+import io.silv.offlinechat.data.KtorWebsocketClient
+import io.silv.offlinechat.data.KtorWebsocketServer
 import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import org.koin.android.ext.koin.androidApplication
@@ -33,16 +35,22 @@ val appModule = module {
         )
     }
 
+
     single {
         ImageReceiver(ImageFileRepo(androidContext()))
     }
 
 
     viewModel {
+
+        val repoForMessages = ImageFileRepo(androidContext(), "message_images")
+
         MainActivityViewModel(
             receiver = get(),
             imageReceiver = get(),
-            imageRepoForMessages = ImageFileRepo(androidContext(), "message_images")
+            imageRepoForMessages = repoForMessages,
+            ktorWebsocketServer = KtorWebsocketServer(repoForMessages),
+            ktorWebsocketClient = KtorWebsocketClient(repoForMessages)
         )
     }
 }

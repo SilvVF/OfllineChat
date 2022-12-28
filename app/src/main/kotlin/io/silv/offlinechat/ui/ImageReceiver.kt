@@ -14,7 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 
 class ImageReceiver(
@@ -25,9 +26,14 @@ class ImageReceiver(
 
     val uriFlow = repo.uriFlow.also { println(it) }
 
-    fun lockRepoForOp(executable: (locked: Boolean) -> Unit){
-        executable(repo.fileDeletionLock.tryLock(this))
-        repo.fileDeletionLock.unlock(this)
+    suspend fun getLocalUrisForSend(
+        onCompletion: suspend () -> Unit,
+        executable: suspend (List<Uri>) -> Unit,
+    ){
+        repo.fileDeletionLock.withLock {
+            executable(uriFlow.first())
+        }
+        onCompletion()
     }
 
     override fun onReceiveContent(view: View, payload: ContentInfoCompat): ContentInfoCompat? {
