@@ -18,7 +18,7 @@ import com.google.accompanist.permissions.*
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import io.silv.offlinechat.ui.ContentMain
 import io.silv.offlinechat.ui.MessageScreen
-import io.silv.offlinechat.ui.OnboardPermissionScreen
+import io.silv.offlinechat.ui.onboarding.OnboardScreen
 import io.silv.offlinechat.ui.theme.OfflineChatTheme
 import org.koin.android.ext.android.get
 import org.koin.androidx.compose.getViewModel
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
 
             OfflineChatTheme {
                 // A surface container using the 'background' color from the theme
-                val permissionState = rememberMultiplePermissionsState(permissions = permissionsList())
+                val permissionState = rememberMultiplePermissionsState(permissions = createPermissionsList())
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                             MessageScreen(viewModel = viewModel)
                         }
                     } else {
-                       OnboardPermissionScreen(permissionState)
+                       OnboardScreen(permissionState, { })
                     }
                 }
             }
@@ -88,11 +88,10 @@ class MainActivity : ComponentActivity() {
             addAction(WIFI_P2P_THIS_DEVICE_CHANGED_ACTION)
         }
     }
-    private fun permissionsList() =
+    private fun createPermissionsList() =
         buildList {
             add(Manifest.permission.ACCESS_NETWORK_STATE)
             add(Manifest.permission.INTERNET)
-
             add(Manifest.permission.CHANGE_WIFI_STATE)
             add(Manifest.permission.ACCESS_WIFI_STATE)
             //location

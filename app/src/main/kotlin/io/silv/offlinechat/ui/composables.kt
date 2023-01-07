@@ -135,18 +135,6 @@ fun PeerListItem(
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-fun OnboardPermissionScreen(permissionsState: MultiplePermissionsState) {
-    if (permissionsState.allPermissionsGranted) {
-        // If all permissions are granted, then show screen with the feature enabled
-        Text("Camera and Read storage permissions Granted! Thank you!")
-    } else {
-        OnboardScreen(permissionsState) {
-            permissionsState.launchMultiplePermissionRequest()
-        }
-    }
-}
 
 
 

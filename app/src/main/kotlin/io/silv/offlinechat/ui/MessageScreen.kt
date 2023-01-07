@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -49,21 +50,45 @@ fun MessageScreen(
             }
             items(viewModel.messages) {
                 when(it) {
-                    is Chat.Image -> {
-                        AndroidView(
-                            modifier = Modifier.size(100.dp),
-                            factory = { context ->
-                                ImageView(context).apply {
-                                    setImageURI(it.uri)
+                    is Chat.ReceivedImage -> {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                            AndroidView(
+                                modifier = Modifier.size(100.dp),
+                                factory = { context ->
+                                    ImageView(context).apply {
+                                        setImageURI(it.uri)
+                                    }
+                                },
+                                update = { iv ->
+                                    iv.setImageURI(it.uri)
                                 }
-                            },
-                            update = { iv ->
-                                iv.setImageURI(it.uri)
-                            }
-                        )
+                            )
+                        }
                     }
-                    is Chat.Message -> {
-                        Text(it.s)
+                    is Chat.ReceivedMessage-> {
+                        Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                            Text(it.s)
+                        }
+                    }
+                    is Chat.SentImage -> {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                            AndroidView(
+                                modifier = Modifier.size(100.dp),
+                                factory = { context ->
+                                    ImageView(context).apply {
+                                        setImageURI(it.uri)
+                                    }
+                                },
+                                update = { iv ->
+                                    iv.setImageURI(it.uri)
+                                }
+                            )
+                        }
+                    }
+                    is Chat.SentMessage -> {
+                        Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                            Text(it.s)
+                        }
                     }
                 }
             }

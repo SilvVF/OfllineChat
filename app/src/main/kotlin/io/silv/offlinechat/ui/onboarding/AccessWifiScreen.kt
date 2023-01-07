@@ -16,7 +16,6 @@ import com.google.accompanist.permissions.*
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AccessWifiScreen(
-    permissionsState: MultiplePermissionsState,
     navigate: () -> Unit
 ) {
 
@@ -26,20 +25,15 @@ fun AccessWifiScreen(
             add(Manifest.permission.INTERNET)
             add(Manifest.permission.CHANGE_WIFI_STATE)
             add(Manifest.permission.ACCESS_WIFI_STATE)
-            //relative position of devices
             if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU)
                 add(Manifest.permission.NEARBY_WIFI_DEVICES)
         }
     }
 
-    val permissions = remember(permissionsState) {
-        derivedStateOf {
-            permissionsState.permissions.filter { it.permission in permissionList }
-        }
-    }.value
+    val permissions = rememberMultiplePermissionsState(permissions = permissionList)
 
     LaunchedEffect(key1 = permissions) {
-        if(permissions.all{ it.status.isGranted }) {
+        if(permissions.allPermissionsGranted) {
             navigate()
         }
     }
@@ -52,9 +46,7 @@ fun AccessWifiScreen(
         Text(text = "Access Wifi Screen")
         Button(
             onClick = {
-                permissions.onEach {
-                    it.launchPermissionRequest()
-                }
+                permissions.launchMultiplePermissionRequest()
             }
         ) {
            Text("Next ->")

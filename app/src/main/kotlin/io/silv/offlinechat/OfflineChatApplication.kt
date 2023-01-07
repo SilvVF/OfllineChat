@@ -1,7 +1,6 @@
 package io.silv.offlinechat
 
 import android.app.Application
-import io.silv.offlinechat.di.activityModule
 import io.silv.offlinechat.di.appModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -17,7 +16,7 @@ class OfflineChatApplication: Application() {
             // Reference Android context
             androidContext(this@OfflineChatApplication)
             // Load modules
-            modules(appModule, activityModule)
+            modules(appModule)
         }
     }
 }

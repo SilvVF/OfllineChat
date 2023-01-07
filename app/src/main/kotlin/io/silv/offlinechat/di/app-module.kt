@@ -3,7 +3,6 @@ package io.silv.offlinechat.di
 import android.content.Context
 import android.net.wifi.p2p.WifiP2pManager
 import io.silv.offlinechat.MainActivityViewModel
-import io.silv.offlinechat.OnboardViewModel
 import io.silv.offlinechat.data.ImageFileRepo
 import io.silv.offlinechat.data.KtorWebsocketClient
 import io.silv.offlinechat.data.KtorWebsocketServer
@@ -56,8 +55,6 @@ val appModule = module {
             ktorWebsocketClient = KtorWebsocketClient(repoForMessages)
         )
     }
-
-    viewModelOf(::OnboardViewModel)
 }
 
 val activityModule = module {

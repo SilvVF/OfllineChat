@@ -80,13 +80,13 @@ class MainActivityViewModel(
         when(localData) {
             is Message -> {
                 messages = buildList {
-                    add(Chat.Message(localData.content, System.currentTimeMillis()))
+                    add(Chat.ReceivedMessage(localData.content, System.currentTimeMillis()))
                     addAll(messages)
                 }
             }
             is LocalImage -> {
                 messages = buildList {
-                    add(Chat.Image(localData.uri, System.currentTimeMillis()))
+                    add(Chat.ReceivedImage(localData.uri, System.currentTimeMillis()))
                     addAll(messages)
                 }
             }
@@ -100,7 +100,7 @@ class MainActivityViewModel(
             ktorWebsocketClient.sendMessage(Message(message, "client"))
         }
         messages = buildList {
-            add(Chat.Message(message, System.currentTimeMillis()))
+            add(Chat.SentMessage(message, System.currentTimeMillis()))
             addAll(messages)
         }
         imageReceiver.getLocalUrisForSend(
@@ -121,7 +121,7 @@ class MainActivityViewModel(
                             ktorWebsocketClient.sendImage(image)
                         }
                         messages = buildList {
-                            add(Chat.Image(uri, time))
+                            add(Chat.SentImage(uri, time))
                             addAll(messages)
                         }
                     }
@@ -165,7 +165,9 @@ class MainActivityViewModel(
         }
     }
 }
-sealed class Chat {
-    data class Message(val s: String, val time: Long): Chat()
-    data class Image(val uri: Uri, val time: Long): Chat()
+sealed interface Chat {
+    data class SentMessage(val s: String, val time: Long): Chat
+    data class ReceivedMessage(val s: String, val time: Long): Chat
+    data class SentImage(val uri: Uri, val time: Long): Chat
+    data class ReceivedImage(val uri: Uri, val time: Long): Chat
 }

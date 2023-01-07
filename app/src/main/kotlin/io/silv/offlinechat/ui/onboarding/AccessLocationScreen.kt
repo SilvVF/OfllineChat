@@ -6,18 +6,17 @@ import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AccessLocationScreen(
-    permissionsState: MultiplePermissionsState,
     navigate: () -> Unit
 ) {
 
@@ -28,14 +27,9 @@ fun AccessLocationScreen(
         }
     }
 
-    val permissions = remember(permissionsState) {
-        derivedStateOf {
-            permissionsState.permissions.filter { it.permission in permissionList }
-        }
-    }.value
-
+    val permissions = rememberMultiplePermissionsState(permissions = permissionList)
     LaunchedEffect(key1 = permissions) {
-        if (permissions.all { it.status.isGranted }) {
+        if (permissions.permissions.any { it.status.isGranted }) {
             navigate()
         }
     }
@@ -54,7 +48,7 @@ fun AccessLocationScreen(
         Text(text = "Access Location Screen")
         Button(
             onClick = {
-                permissions.forEach { it.launchPermissionRequest() }
+                permissions.launchMultiplePermissionRequest()
             }
         ) {
            Text("Next ->")
