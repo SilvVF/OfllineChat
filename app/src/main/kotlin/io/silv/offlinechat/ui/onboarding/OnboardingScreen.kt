@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalAnimationApi::class)
+@file:OptIn(ExperimentalAnimationApi::class, ExperimentalPermissionsApi::class)
 
 package io.silv.offlinechat.ui.onboarding
 
@@ -6,20 +6,18 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.MultiplePermissionsState
 import io.silv.offlinechat.OnboardScreen
 import io.silv.offlinechat.OnboardViewModel
 import org.koin.androidx.compose.getViewModel
 
 @Composable
 fun OnboardScreen(
+    permissionsState: MultiplePermissionsState,
     viewModel: OnboardViewModel = getViewModel<OnboardViewModel>(),
-    finishedOnboard: () -> Unit
+    finishedOnboard: () -> Unit,
 ) {
-
-    var prevIdx by remember {
-        mutableStateOf(0)
-    }
-
     AnimatedContent(
         targetState = viewModel.currentScreen,
         modifier = Modifier.fillMaxSize(),
@@ -37,10 +35,10 @@ fun OnboardScreen(
             OnboardScreen.WelcomeScreen -> WelcomeScreen {
                 viewModel.navigateToNextScreen(OnboardScreen.WelcomeScreen)
             }
-            OnboardScreen.AccessWifiState -> AccessWifiScreen {
+            OnboardScreen.AccessWifiState -> AccessWifiScreen(permissionsState) {
                 viewModel.navigateToNextScreen(OnboardScreen.AccessWifiState)
             }
-            OnboardScreen.AccessLocation -> AccessLocationScreen {
+            OnboardScreen.AccessLocation -> AccessLocationScreen(permissionsState) {
                 viewModel.navigateToNextScreen(OnboardScreen.Done)
             }
             OnboardScreen.Done -> finishedOnboard()

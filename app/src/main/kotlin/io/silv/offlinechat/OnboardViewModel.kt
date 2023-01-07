@@ -22,7 +22,7 @@ class OnboardViewModel(
             is OnboardScreen.WelcomeScreen  -> OnboardScreen.AccessWifiState
             is OnboardScreen.AccessWifiState -> OnboardScreen.AccessLocation
             else -> OnboardScreen.Done
-        }.also { savedStateHandle[currentScreenKey] = it }
+        }
     }
 }
 

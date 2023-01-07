@@ -33,7 +33,6 @@ fun MessageScreen(
         mutableStateOf("")
     }
     Column(Modifier.fillMaxSize()) {
-        Text(text = if (viewModel.server) "server" else "client")
         Box(modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)) {

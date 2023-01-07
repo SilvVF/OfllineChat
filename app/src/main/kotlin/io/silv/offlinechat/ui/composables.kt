@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
+import io.silv.offlinechat.ui.onboarding.OnboardScreen
 
 /*
 https://cse.iitkgp.ac.in/~bivasm/sp_notes/wifi_direct_2.pdf
@@ -58,7 +59,12 @@ fun DeviceConnectionCard(
     onConnectClicked: () -> Unit
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth(0.9f).height(1.dp).border(2.dp, Color.Black).padding(bottom = 2.dp))
+        Box(
+            Modifier
+                .fillMaxWidth(0.9f)
+                .height(1.dp)
+                .border(2.dp, Color.Black)
+                .padding(bottom = 2.dp))
         Row(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.Start,
@@ -83,7 +89,12 @@ fun DeviceConnectionCard(
             }
 
         }
-        Box(Modifier.fillMaxWidth(0.9f).height(1.dp).border(1.dp, Color.Black).padding(top = 2.dp   ))
+        Box(
+            Modifier
+                .fillMaxWidth(0.9f)
+                .height(1.dp)
+                .border(1.dp, Color.Black)
+                .padding(top = 2.dp))
     }
 }
 
@@ -131,14 +142,8 @@ fun OnboardPermissionScreen(permissionsState: MultiplePermissionsState) {
         // If all permissions are granted, then show screen with the feature enabled
         Text("Camera and Read storage permissions Granted! Thank you!")
     } else {
-        Column {
-            Text(
-                permissionsState.revokedPermissions.toString()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
-                Text("Request permissions")
-            }
+        OnboardScreen(permissionsState) {
+            permissionsState.launchMultiplePermissionRequest()
         }
     }
 }

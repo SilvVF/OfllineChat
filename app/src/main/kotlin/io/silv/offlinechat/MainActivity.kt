@@ -40,11 +40,11 @@ class MainActivity : ComponentActivity() {
 
             OfflineChatTheme {
                 // A surface container using the 'background' color from the theme
+                val permissionState = rememberMultiplePermissionsState(permissions = permissionsList())
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    val permissionState = rememberMultiplePermissionsState(permissionsList())
                     if (permissionState.allPermissionsGranted) {
                         val (s, setS) = mutableStateOf(true)
                         if (viewModel.connectionInfo.collectAsState().value == null) {
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                             MessageScreen(viewModel = viewModel)
                         }
                     } else {
-                       OnboardPermissionScreen(permissionsState = permissionState)
+                       OnboardPermissionScreen(permissionState)
                     }
                 }
             }
@@ -92,12 +92,15 @@ class MainActivity : ComponentActivity() {
         buildList {
             add(Manifest.permission.ACCESS_NETWORK_STATE)
             add(Manifest.permission.INTERNET)
+
             add(Manifest.permission.CHANGE_WIFI_STATE)
             add(Manifest.permission.ACCESS_WIFI_STATE)
+            //location
             add(Manifest.permission.ACCESS_COARSE_LOCATION)
             add(Manifest.permission.ACCESS_FINE_LOCATION)
+            //relative position of devices
             if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU)
                 add(Manifest.permission.NEARBY_WIFI_DEVICES)
-        }.toList()
+        }
 }
 

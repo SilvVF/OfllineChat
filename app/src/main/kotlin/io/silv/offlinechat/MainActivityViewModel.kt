@@ -18,10 +18,6 @@ import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
-import java.time.LocalDateTime
-
-private var connectedAlready = false
-private var serverJob: Job? = null
 
 class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
@@ -42,10 +38,10 @@ class MainActivityViewModel(
 
     var messages by mutableStateOf(emptyList<Chat>())
 
-    var server: Boolean = false
+    var isServer by mutableStateOf<Boolean>(false)
         private set
-    var client: Boolean = false
-        private set
+
+
     init {
         listenForConnection()
         collectReceiverErrors()
@@ -62,13 +58,13 @@ class MainActivityViewModel(
                 val groupOwnerAddress = info.groupOwnerAddress.hostAddress ?: "127.0.0.1"
                 println(info.groupOwnerAddress.hostAddress)
                 if (wifiInfo.isGroupOwner) {
-                    server = true
+                    isServer = true
                     ktorWebsocketServer.start(8888, groupOwnerAddress)
                     ktorWebsocketServer.subscribeToSocketData {
                         receivedLocalData(it)
                     }
                 } else {
-                    client = true
+                    isServer = false
                     delay(2000)
                     launch {  ktorWebsocketClient.connect(8888, groupOwnerAddress) }
                     ktorWebsocketClient.subscribeToSocketData {
@@ -98,10 +94,10 @@ class MainActivityViewModel(
     }
 
     fun sendMessageUsingKtor(message: String) = viewModelScope.launch {
-        if (client) {
-            ktorWebsocketClient.sendMessage(Message(message, "client"))
-        } else if (server) {
+        if (isServer) {
             ktorWebsocketServer.sendMessage(Message(message, "server"))
+        } else {
+            ktorWebsocketClient.sendMessage(Message(message, "client"))
         }
         messages = buildList {
             add(Chat.Message(message, System.currentTimeMillis()))
@@ -119,10 +115,10 @@ class MainActivityViewModel(
                             bytes = file.readBytes(),
                             sender = "sender", time = time
                         )
-                        if (client) {
-                            ktorWebsocketClient.sendImage(image)
-                        } else if (server) {
+                        if (isServer) {
                             ktorWebsocketServer.sendImage(image)
+                        } else  {
+                            ktorWebsocketClient.sendImage(image)
                         }
                         messages = buildList {
                             add(Chat.Image(uri, time))
@@ -169,7 +165,7 @@ class MainActivityViewModel(
         }
     }
 }
-sealed class Chat(val t: Long) {
-    data class Message(val s: String, val time: Long): Chat(time)
-    data class Image(val uri: Uri, val time: Long): Chat(time)
+sealed class Chat {
+    data class Message(val s: String, val time: Long): Chat()
+    data class Image(val uri: Uri, val time: Long): Chat()
 }
