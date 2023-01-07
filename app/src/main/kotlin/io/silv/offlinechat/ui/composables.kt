@@ -20,10 +20,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.MultiplePermissionsState
 import io.silv.offlinechat.Chat
-import io.silv.offlinechat.ui.onboarding.OnboardScreen
+import io.silv.offlinechat.ui.components.ChatMessage
 
 /*
 https://cse.iitkgp.ac.in/~bivasm/sp_notes/wifi_direct_2.pdf
@@ -140,7 +138,7 @@ fun PeerListItem(
 
 
 @Composable
-fun ChatMessage(it: Chat) {
+fun ChatListItem(it: Chat) {
     when(it) {
         is Chat.ReceivedImage -> {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
@@ -158,8 +156,12 @@ fun ChatMessage(it: Chat) {
             }
         }
         is Chat.ReceivedMessage-> {
-            Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                Text(it.s)
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp), contentAlignment = Alignment.CenterStart) {
+                Box(modifier = Modifier.fillMaxWidth(0.6f)) {
+                    ChatMessage(isReceived = true, message = it.s)
+                }
             }
         }
         is Chat.SentImage -> {
@@ -178,8 +180,12 @@ fun ChatMessage(it: Chat) {
             }
         }
         is Chat.SentMessage -> {
-            Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                Text(it.s)
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp), contentAlignment = Alignment.CenterEnd) {
+                Box(Modifier.fillMaxWidth(0.6f)) {
+                    ChatMessage(isReceived = false, message = it.s)
+                }
             }
         }
     }

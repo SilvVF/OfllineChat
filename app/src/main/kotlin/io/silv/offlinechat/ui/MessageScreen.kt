@@ -36,7 +36,7 @@ fun MessageScreen(
     Box(modifier = Modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.BottomCenter) {
         LazyColumn(Modifier.fillMaxSize()) {
             items(viewModel.messages) {
-                ChatMessage(it = it)
+                ChatListItem(it = it)
             }
         }
         Column(
