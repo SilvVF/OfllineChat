@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.widget.addTextChangedListener
-import io.silv.offlinechat.Chat
 import io.silv.offlinechat.MainActivityViewModel
 import kotlinx.coroutines.launch
 
@@ -33,65 +32,29 @@ fun MessageScreen(
     var text by remember {
         mutableStateOf("")
     }
-    Column(Modifier.fillMaxSize()) {
-        Box(modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)) {
-            ImageEditText(viewModel.imageReceiver) {
-                text = it
+
+    Box(modifier = Modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.BottomCenter) {
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(viewModel.messages) {
+                ChatMessage(it = it)
             }
         }
-
-        LazyColumn(Modifier.fillMaxSize()) {
-            item {
+        Column(
+            Modifier
+                .fillMaxWidth()
+        ) {
                 Button(onClick = { viewModel.sendMessageUsingKtor(text) }) {
                     Text(text = "send message")
                 }
-            }
-            items(viewModel.messages) {
-                when(it) {
-                    is Chat.ReceivedImage -> {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                            AndroidView(
-                                modifier = Modifier.size(100.dp),
-                                factory = { context ->
-                                    ImageView(context).apply {
-                                        setImageURI(it.uri)
-                                    }
-                                },
-                                update = { iv ->
-                                    iv.setImageURI(it.uri)
-                                }
-                            )
-                        }
-                    }
-                    is Chat.ReceivedMessage-> {
-                        Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                            Text(it.s)
-                        }
-                    }
-                    is Chat.SentImage -> {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                            AndroidView(
-                                modifier = Modifier.size(100.dp),
-                                factory = { context ->
-                                    ImageView(context).apply {
-                                        setImageURI(it.uri)
-                                    }
-                                },
-                                update = { iv ->
-                                    iv.setImageURI(it.uri)
-                                }
-                            )
-                        }
-                    }
-                    is Chat.SentMessage -> {
-                        Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                            Text(it.s)
-                        }
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .heightIn(10.dp, 100.dp)
+                ) {
+                    ImageEditText(viewModel.imageReceiver) {
+                        text = it
                     }
                 }
-            }
         }
     }
 }
@@ -109,7 +72,8 @@ Column(Modifier.fillMaxSize()) {
     LazyRow(
         Modifier
             .fillMaxWidth()
-            .height(50.dp)) {
+            .wrapContentHeight()
+    ) {
         items(uriList) {uri ->
             AndroidView(
                 modifier = Modifier
@@ -127,13 +91,15 @@ Column(Modifier.fillMaxSize()) {
             )
         }
         item {
-            IconButton(onClick = { scope.launch {
-                receiver.backspaceImage()
-            } }) {
-                Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "backspace")
-            }
-            IconButton(onClick = { scope.launch { receiver.clearImages() } }) {
-                Icon(imageVector = Icons.Default.Clear, contentDescription = "clear")
+            if (uriList.isNotEmpty()) {
+                IconButton(onClick = { scope.launch {
+                    receiver.backspaceImage()
+                } }) {
+                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "backspace")
+                }
+                IconButton(onClick = { scope.launch { receiver.clearImages() } }) {
+                    Icon(imageVector = Icons.Default.Clear, contentDescription = "clear")
+                }
             }
         }
     }
@@ -141,12 +107,11 @@ Column(Modifier.fillMaxSize()) {
     AndroidView(
         modifier = Modifier
             .fillMaxSize()
-            .height(50.dp),
+            .wrapContentHeight(),
         factory = { context ->
             // Creates view
             EditText(context).apply {
                 width = maxWidth
-                height = 50
                 // Sets up listeners for View -> Compose communication
 
                 ViewCompat.setOnReceiveContentListener(

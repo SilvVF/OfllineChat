@@ -3,6 +3,7 @@ package io.silv.offlinechat.ui
 import android.annotation.SuppressLint
 import android.net.wifi.p2p.WifiP2pDevice
 import android.os.Build
+import android.widget.ImageView
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -18,8 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
+import io.silv.offlinechat.Chat
 import io.silv.offlinechat.ui.onboarding.OnboardScreen
 
 /*
@@ -135,6 +138,52 @@ fun PeerListItem(
     }
 }
 
+
+@Composable
+fun ChatMessage(it: Chat) {
+    when(it) {
+        is Chat.ReceivedImage -> {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                AndroidView(
+                    modifier = Modifier.size(100.dp),
+                    factory = { context ->
+                        ImageView(context).apply {
+                            setImageURI(it.uri)
+                        }
+                    },
+                    update = { iv ->
+                        iv.setImageURI(it.uri)
+                    }
+                )
+            }
+        }
+        is Chat.ReceivedMessage-> {
+            Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                Text(it.s)
+            }
+        }
+        is Chat.SentImage -> {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                AndroidView(
+                    modifier = Modifier.size(100.dp),
+                    factory = { context ->
+                        ImageView(context).apply {
+                            setImageURI(it.uri)
+                        }
+                    },
+                    update = { iv ->
+                        iv.setImageURI(it.uri)
+                    }
+                )
+            }
+        }
+        is Chat.SentMessage -> {
+            Box(modifier =  Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                Text(it.s)
+            }
+        }
+    }
+}
 
 
 
