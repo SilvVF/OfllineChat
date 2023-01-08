@@ -1,11 +1,19 @@
+@file:OptIn(InternalSerializationApi::class)
+
 package io.silv.offlinechat.data
 
 import android.net.Uri
+import android.util.Log
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.serialization.InternalSerializationApi
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.serializer
 import java.io.File
 import java.util.*
 
@@ -16,3 +24,23 @@ fun writeBytesToFileRepo(fileRepo: ImageFileRepo, image: Image) = flow<Uri> {
         emit(uri)
         coroutineScope { file.delete() }
 }.flowOn(Dispatchers.IO)
+
+private fun parseJsonToSocketData(json: String): SocketData {
+        val type = Json.parseToJsonElement(json).jsonObject["type"]
+                ?.toString()
+                ?.trim()
+                ?.removeSurrounding("\"")
+        repeat(1) {
+                println(json)
+                println(type)
+        }
+        val serializer = when(type) {
+                "message" -> Message::class.serializer()
+                "ack" -> return Ack()
+                "image" -> Image::class.serializer()
+                else -> throw SerializationException("type in json does not conform to socket object types")
+        }
+        return Json.decodeFromString(serializer, json)
+}
+
+fun String.logJson() = this.also { Log.d("json", this.trimIndent()) }
