@@ -11,7 +11,6 @@ import com.google.common.io.ByteStreams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -27,7 +26,7 @@ import java.util.*
  */
 class ImageFileRepo(
     private val context: Context,
-    private val child: String = "attachments",
+    private val child: String,
     val fileDeletionLock: Mutex = Mutex(false)
 ) {
 
@@ -68,6 +67,7 @@ class ImageFileRepo(
             throw IllegalStateException(e)
         }
     }
+
 
     suspend fun deleteLast() {
         fileDeletionLock.withLock {

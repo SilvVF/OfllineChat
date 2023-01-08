@@ -2,7 +2,6 @@ package io.silv.offlinechat.data
 
 
 import android.util.Log
-import androidx.core.net.toUri
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.websocket.*
@@ -25,10 +24,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
 import org.slf4j.event.Level
-import java.io.File
 import java.util.*
 
-private suspend fun onReceived(data: SocketData, imageFileRepo: ImageFileRepo, mutableLocalDataFlow: MutableSharedFlow<LocalData>) {
+private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSharedFlow<LocalData>) {
     when (data) {
         is Message -> {
             mutableLocalDataFlow.emit(data)
@@ -38,11 +36,7 @@ private suspend fun onReceived(data: SocketData, imageFileRepo: ImageFileRepo, m
         }
         is Image -> {
             withContext(Dispatchers.IO) {
-                val file = File.createTempFile("temp-image", "${UUID.randomUUID()}")
-                file.writeBytes(data.bytes)
-                val uri = imageFileRepo.write(file.toUri()).second
-                mutableLocalDataFlow.emit(LocalImage(uri))
-                launch { file.delete() }
+                mutableLocalDataFlow.emit(data)
             }
         }
     }
@@ -66,9 +60,7 @@ private fun parseJsonToSocketData(json: String): SocketData {
     return Json.decodeFromString(serializer, json)
 }
 
-class KtorWebsocketServer(
-    private val imageFileRepo: ImageFileRepo
-) {
+class KtorWebsocketServer {
 
     private val mutableLocalDataFlow = MutableSharedFlow<LocalData>()
 
@@ -118,7 +110,6 @@ class KtorWebsocketServer(
                                 try {
                                     onReceived(
                                         data = parseJsonToSocketData(frame.readText()),
-                                        imageFileRepo,
                                         mutableLocalDataFlow
                                     )
                                 } catch (e: Exception) {
@@ -131,9 +122,7 @@ class KtorWebsocketServer(
         }.start(true)
     }
 }
-class KtorWebsocketClient(
-    private val imageFileRepo: ImageFileRepo
-) {
+class KtorWebsocketClient {
 
     private val client = HttpClient(CIO) {
         install(io.ktor.client.plugins.websocket.WebSockets)
@@ -165,7 +154,6 @@ class KtorWebsocketClient(
                        try {
                            onReceived(
                                data = parseJsonToSocketData(frame.readText()),
-                               imageFileRepo,
                                mutableLocalDataFlow
                            )
                        } catch (e: Exception) {

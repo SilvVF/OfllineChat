@@ -25,7 +25,7 @@ data class Image(
     val bytes: ByteArray,
     val sender: String,
     val time: Long = System.currentTimeMillis()
-): SocketData("image") {
+): SocketData("image"), LocalData {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

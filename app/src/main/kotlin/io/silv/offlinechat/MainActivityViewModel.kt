@@ -19,17 +19,17 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 
+
 class MainActivityViewModel(
+    private val imageRepoForMessages: ImageFileRepo,
     private val receiver: WifiP2pReceiver,
     val imageReceiver: ImageReceiver,
-    private val imageRepoForMessages: ImageFileRepo,
+    private val ktorWebsocketServer: KtorWebsocketServer,
+    private val ktorWebsocketClient: KtorWebsocketClient
 ): ViewModel() {
 
     private val channel = receiver.channel
     private val manager = receiver.manager
-
-    private val ktorWebsocketServer = KtorWebsocketServer(imageRepoForMessages)
-    private val ktorWebsocketClient = KtorWebsocketClient(imageRepoForMessages)
 
     val peers = receiver.peersList
     val connectionInfo = receiver.connectionInfo.asStateFlow()
@@ -86,10 +86,14 @@ class MainActivityViewModel(
                     addAll(messages)
                 }
             }
-            is LocalImage -> {
-                messages = buildList {
-                    add(Chat.ReceivedImage(localData.uri, System.currentTimeMillis()))
-                    addAll(messages)
+            is Image -> {
+                viewModelScope.launch {
+                    writeBytesToFileRepo(imageRepoForMessages, localData).collect { uri ->
+                        messages = buildList {
+                            add(Chat.ReceivedImage(uri, System.currentTimeMillis()))
+                            addAll(messages)
+                        }
+                    }
                 }
             }
         }
