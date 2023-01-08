@@ -3,7 +3,6 @@ package io.silv.offlinechat.ui
 import android.annotation.SuppressLint
 import android.net.wifi.p2p.WifiP2pDevice
 import android.os.Build
-import android.widget.ImageView
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -19,9 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import io.silv.offlinechat.Chat
-import io.silv.offlinechat.ui.components.ChatMessage
 
 /*
 https://cse.iitkgp.ac.in/~bivasm/sp_notes/wifi_direct_2.pdf
@@ -136,60 +132,6 @@ fun PeerListItem(
     }
 }
 
-
-@Composable
-fun ChatListItem(it: Chat) {
-    when(it) {
-        is Chat.ReceivedImage -> {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                AndroidView(
-                    modifier = Modifier.size(100.dp),
-                    factory = { context ->
-                        ImageView(context).apply {
-                            setImageURI(it.uri)
-                        }
-                    },
-                    update = { iv ->
-                        iv.setImageURI(it.uri)
-                    }
-                )
-            }
-        }
-        is Chat.ReceivedMessage-> {
-            Box(modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp), contentAlignment = Alignment.CenterStart) {
-                Box(modifier = Modifier.fillMaxWidth(0.6f)) {
-                    ChatMessage(isReceived = true, message = it.s)
-                }
-            }
-        }
-        is Chat.SentImage -> {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                AndroidView(
-                    modifier = Modifier.size(100.dp),
-                    factory = { context ->
-                        ImageView(context).apply {
-                            setImageURI(it.uri)
-                        }
-                    },
-                    update = { iv ->
-                        iv.setImageURI(it.uri)
-                    }
-                )
-            }
-        }
-        is Chat.SentMessage -> {
-            Box(modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp), contentAlignment = Alignment.CenterEnd) {
-                Box(Modifier.fillMaxWidth(0.6f)) {
-                    ChatMessage(isReceived = false, message = it.s)
-                }
-            }
-        }
-    }
-}
 
 
 
