@@ -21,7 +21,9 @@ fun ChatListItem(it: Chat) {
     val screenWidth = LocalConfiguration.current.screenWidthDp
     when(it) {
         is Chat.ReceivedImage -> {
-            Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.CenterStart) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp), contentAlignment = Alignment.CenterStart) {
                 AndroidView(
                     modifier = Modifier.size(100.dp),
                     factory = { context ->
@@ -50,7 +52,9 @@ fun ChatListItem(it: Chat) {
             }
         }
         is Chat.SentImage -> {
-            Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.CenterEnd) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp), contentAlignment = Alignment.CenterEnd) {
                 AndroidView(
                     modifier = Modifier.size(100.dp),
                     factory = { context ->
