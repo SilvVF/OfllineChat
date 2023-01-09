@@ -21,29 +21,22 @@ import kotlinx.coroutines.flow.*
 
 
 class MainActivityViewModel(
-    private val imageRepoForMessages: ImageFileRepo,
+    private val messageImageRepo: ImageFileRepo,
     private val receiver: WifiP2pReceiver,
-    val imageReceiver: ImageReceiver,
+    val attachmentReceiver: ImageReceiver,
     private val ktorWebsocketServer: KtorWebsocketServer,
     private val ktorWebsocketClient: KtorWebsocketClient
 ): ViewModel() {
 
-    private val channel = receiver.channel
-    private val manager = receiver.manager
-
-    val peers = receiver.peersList
     val connectionInfo = receiver.connectionInfo.asStateFlow()
 
     private val mutableSideEffectChannel = Channel<String>()
     val sideEffects = mutableSideEffectChannel.receiveAsFlow()
-
-
+    val peers = receiver.peersList
     var messages by mutableStateOf(emptyList<Chat>())
 
     var isServer by mutableStateOf<Boolean>(false)
         private set
-
-
     init {
         listenForConnection()
         collectReceiverErrors()
@@ -68,7 +61,9 @@ class MainActivityViewModel(
                 } else {
                     isServer = false
                     delay(2000)
-                    launch {  ktorWebsocketClient.connect(8888, groupOwnerAddress) }
+                    runCatching {
+                        ktorWebsocketClient.connect(8888, groupOwnerAddress)
+                    }
                     ktorWebsocketClient.subscribeToSocketData {
                         Log.d("Received", it.toString())
                         receivedLocalData(it)
@@ -88,7 +83,7 @@ class MainActivityViewModel(
             }
             is Image -> {
                 viewModelScope.launch {
-                    writeBytesToFileRepo(imageRepoForMessages, localData).collect { uri ->
+                    writeBytesToFileRepo(messageImageRepo, localData).collect { uri ->
                         messages = buildList {
                             add(Chat.ReceivedImage(uri, System.currentTimeMillis()))
                             addAll(messages)
@@ -109,14 +104,14 @@ class MainActivityViewModel(
             add(Chat.SentMessage(message, System.currentTimeMillis()))
             addAll(messages)
         }
-        imageReceiver.getLocalUrisForSend(
-            onCompletion = { imageReceiver.clearImages() }
+        attachmentReceiver.getLocalUrisForSend(
+            onCompletion = { attachmentReceiver.clearImages() }
         ) { attachmentUris ->
             launch {
                 attachmentUris.forEach { aUri ->
                     launch {
                         val time = System.currentTimeMillis()
-                        val (file, uri) = imageRepoForMessages.write(aUri)
+                        val (file, uri) = messageImageRepo.write(aUri)
                         val image = Image(
                             bytes = file.readBytes(),
                             sender = "sender", time = time
@@ -142,8 +137,8 @@ class MainActivityViewModel(
                 deviceAddress = device.deviceAddress
                 wps.setup = WpsInfo.PBC
             }
-            channel.also { channel ->
-                manager.connect(channel, config, object : WifiP2pManager.ActionListener {
+            receiver.channel.also { channel ->
+                receiver.manager.connect(channel, config, object : WifiP2pManager.ActionListener {
                     override fun onSuccess() {
                         // WiFiDirectBroadcastReceiver notifies us. Ignore for now.
                         Log.d("peers", "onSuccess called connectTodevice()")

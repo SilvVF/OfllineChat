@@ -2,6 +2,7 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'org.jetbrains.kotlin.plugin.serialization' version '1.7.0'
+    id "org.jlleitschuh.gradle.ktlint" version "11.0.0"
 }
 
 android {
@@ -46,6 +47,17 @@ android {
             excludes += "META-INF/*"
         }
     }
+}
+
+tasks.getByPath("preBuild").dependsOn("ktlintFormat")
+
+ktlint {
+    android = true
+    ignoreFailures = true
+    disabledRules = [
+            "final-newline",
+            "no-wildcard-imports"
+    ]
 }
 
 dependencies {

@@ -25,22 +25,5 @@ fun writeBytesToFileRepo(fileRepo: ImageFileRepo, image: Image) = flow<Uri> {
         coroutineScope { file.delete() }
 }.flowOn(Dispatchers.IO)
 
-private fun parseJsonToSocketData(json: String): SocketData {
-        val type = Json.parseToJsonElement(json).jsonObject["type"]
-                ?.toString()
-                ?.trim()
-                ?.removeSurrounding("\"")
-        repeat(1) {
-                println(json)
-                println(type)
-        }
-        val serializer = when(type) {
-                "message" -> Message::class.serializer()
-                "ack" -> return Ack()
-                "image" -> Image::class.serializer()
-                else -> throw SerializationException("type in json does not conform to socket object types")
-        }
-        return Json.decodeFromString(serializer, json)
-}
 
 fun String.logJson() = this.also { Log.d("json", this.trimIndent()) }

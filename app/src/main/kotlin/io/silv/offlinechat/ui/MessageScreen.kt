@@ -24,11 +24,11 @@ fun MessageScreen(
             }
         }
         ChatBox(
-            modifier = Modifier.fillMaxWidth().heightIn(0.dp, 100.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(0.dp, 200.dp),
             onSend = { message ->
                 viewModel.sendMessageUsingKtor(message)
             },
-            imageReceiver = viewModel.imageReceiver,
+            imageReceiver = viewModel.attachmentReceiver,
         )
     }
 }

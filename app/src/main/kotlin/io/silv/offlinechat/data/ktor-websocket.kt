@@ -1,3 +1,5 @@
+@file:OptIn(InternalSerializationApi::class)
+
 package io.silv.offlinechat.data
 
 
@@ -41,7 +43,7 @@ private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSh
         }
     }
 }
-@OptIn(InternalSerializationApi::class)
+
 private fun parseJsonToSocketData(json: String): SocketData {
     val type = Json.parseToJsonElement(json).jsonObject["type"]
         ?.toString()
@@ -141,7 +143,7 @@ class KtorWebsocketClient {
     private var session: DefaultClientWebSocketSession? = null
 
     fun connect(port: Int, hostname: String) = CoroutineScope(Dispatchers.IO).launch {
-        kotlin.runCatching {
+        runCatching {
            client.webSocket(method = HttpMethod.Get, host = hostname, port = port, path = "/echo") {
                session = this
                launch {

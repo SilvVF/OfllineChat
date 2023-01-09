@@ -29,8 +29,8 @@ val appModule = module {
     viewModel {
         MainActivityViewModel(
             receiver = get(),
-            imageReceiver = get(),
-            imageRepoForMessages = get { parametersOf("message-images") },
+            attachmentReceiver = get(),
+            messageImageRepo = get { parametersOf("message-images") },
             ktorWebsocketClient = get(),
             ktorWebsocketServer = get()
         )

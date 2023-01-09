@@ -5,8 +5,7 @@ import android.widget.ImageView
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
+import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
@@ -14,6 +13,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
@@ -31,6 +31,7 @@ fun ChatBox(
     var chatMessage by remember {
         mutableStateOf("")
     }
+
     Column(modifier) {
         ImageAttachmentList(receiver = imageReceiver)
         Row(
@@ -41,13 +42,17 @@ fun ChatBox(
             ImageEditText(
                 modifier = Modifier.fillMaxWidth(0.8f),
                 receiver = imageReceiver,
+                text = chatMessage,
                 onTextChange = { newMessage ->
                     chatMessage = newMessage
                 }
             )
             IconButton(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { onSend(chatMessage) }
+                onClick = {
+                    onSend(chatMessage)
+                    chatMessage = ""
+                }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Send,
@@ -62,15 +67,22 @@ fun ChatBox(
 fun ImageEditText(
     modifier: Modifier = Modifier,
     receiver: ImageReceiver,
+    text: String,
     onTextChange: (String) -> Unit
 ) {
+    val textFieldColors = TextFieldDefaults.textFieldColors()
+    val backgroundColor = textFieldColors.backgroundColor(enabled = true).value.toArgb()
+    val textColor = textFieldColors.textColor(true).value.toArgb()
+
         AndroidView(
             modifier = modifier,
             factory = { context ->
                 // Creates view
                 EditText(context).apply {
+                    setBackgroundColor(backgroundColor)
+                    setTextColor(textColor)
+                    setText(text)
                     // Sets up listeners for View -> Compose communication
-
                     ViewCompat.setOnReceiveContentListener(
                         this, ImageReceiver.MIME_TYPES, receiver
                     )
@@ -79,7 +91,11 @@ fun ImageEditText(
                     }
                 }
             },
-            update = { }
+            update = {
+                if (text.isEmpty()) {
+                    it.setText("")
+                }
+            }
         )
 }
 

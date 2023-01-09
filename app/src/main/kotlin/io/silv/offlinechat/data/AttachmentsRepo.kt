@@ -87,16 +87,10 @@ class ImageFileRepo(
            }
        }
     }
-
-    val uriFlow: StateFlow<List<Uri>> = fileEventChannel.receiveAsFlow().map { event ->
-        allUris.first()
+    val uriFlow: StateFlow<List<Uri>> = fileEventChannel.receiveAsFlow().map {
+        attachmentsDir.listFiles()?.mapNotNull {
+            it.toUri()
+        } ?: emptyList()
     }.stateIn(CoroutineScope(Dispatchers.IO), SharingStarted.Eagerly, emptyList())
 
-    private val allUris: Flow<List<Uri>> = flow {
-            emit(
-                attachmentsDir.listFiles()?.mapNotNull {
-                    it.toUri()
-                } ?: emptyList<Uri>()
-            )
-    }.flowOn(Dispatchers.IO)
 }
