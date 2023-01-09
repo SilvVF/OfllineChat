@@ -1,6 +1,6 @@
 @file:OptIn(InternalSerializationApi::class)
 
-package io.silv.offlinechat.data
+package io.silv.offlinechat.data.ktor
 
 
 import android.util.Log
@@ -17,6 +17,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.server.websocket.WebSockets
 import io.ktor.websocket.*
+import io.silv.offlinechat.data.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.InternalSerializationApi
@@ -43,7 +44,7 @@ private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSh
         }
     }
 }
-
+@OptIn(InternalSerializationApi::class)
 private fun parseJsonToSocketData(json: String): SocketData {
     val type = Json.parseToJsonElement(json).jsonObject["type"]
         ?.toString()

@@ -4,13 +4,17 @@ import android.content.Context
 import android.net.wifi.p2p.WifiP2pManager
 import io.silv.offlinechat.MainActivityViewModel
 import io.silv.offlinechat.data.ImageFileRepo
-import io.silv.offlinechat.data.KtorWebsocketClient
-import io.silv.offlinechat.data.KtorWebsocketServer
+import io.silv.offlinechat.data.datastore.UserSettingsDataStoreRepo
+import io.silv.offlinechat.data.datastore.UserSettingsDataStoreRepoImpl
+import io.silv.offlinechat.data.datastore.userSettingsDataStore
+import io.silv.offlinechat.data.ktor.KtorWebsocketClient
+import io.silv.offlinechat.data.ktor.KtorWebsocketServer
 import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
+import org.koin.core.module.dsl.singleOf
 import org.koin.core.parameter.parametersOf
 import org.koin.dsl.module
 
@@ -38,11 +42,12 @@ val appModule = module {
 }
 
 val dataModule = module {
-    single {
-        KtorWebsocketServer()
-    }
-    single {
-        KtorWebsocketClient()
+    singleOf(::KtorWebsocketServer)
+    singleOf(::KtorWebsocketClient)
+    single<UserSettingsDataStoreRepo> {
+        UserSettingsDataStoreRepoImpl(
+            store = androidContext().userSettingsDataStore
+        )
     }
 }
 

@@ -12,6 +12,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.silv.offlinechat.data.*
+import io.silv.offlinechat.data.ktor.KtorWebsocketClient
+import io.silv.offlinechat.data.ktor.KtorWebsocketServer
 import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pError
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
