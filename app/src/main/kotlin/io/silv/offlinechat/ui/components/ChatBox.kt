@@ -38,6 +38,10 @@ fun ChatBox(
         mutableStateOf("")
     }
 
+    var chatError by remember {
+        mutableStateOf(false)
+    }
+
     Column(
         modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -58,15 +62,23 @@ fun ChatBox(
                 modifier = Modifier.fillMaxWidth(0.8f),
                 receiver = imageReceiver,
                 text = chatMessage,
+                error = chatError,
                 onTextChange = { newMessage ->
+                    if (newMessage.isNotBlank()) {
+                        chatError = false
+                    }
                     chatMessage = newMessage
                 }
             )
             IconButton(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    onSend(chatMessage)
-                    chatMessage = ""
+                    if (chatMessage.isBlank()) {
+                        chatError = true
+                    } else {
+                        onSend(chatMessage)
+                        chatMessage = ""
+                    }
                 }
             ) {
                 Icon(
@@ -83,6 +95,7 @@ fun ImageEditText(
     modifier: Modifier = Modifier,
     receiver: ImageReceiver?,
     text: String,
+    error: Boolean,
     onTextChange: (String) -> Unit
 ) {
     val textFieldColors = TextFieldDefaults.textFieldColors()
@@ -113,6 +126,7 @@ fun ImageEditText(
                 if (text.isEmpty()) {
                     it.setText("")
                 }
+                it.error = if (error) "type a message to send" else null
             }
         )
 }

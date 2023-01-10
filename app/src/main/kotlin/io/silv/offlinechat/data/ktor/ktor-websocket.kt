@@ -1,4 +1,4 @@
-@file:OptIn(InternalSerializationApi::class)
+@file:OptIn(InternalSerializationApi::class, InternalSerializationApi::class)
 
 package io.silv.offlinechat.data.ktor
 
@@ -12,7 +12,6 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.server.websocket.WebSockets
@@ -27,8 +26,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
 import org.slf4j.event.Level
-import java.util.*
-
 private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSharedFlow<LocalData>) {
     when (data) {
         is Message -> {
@@ -44,7 +41,7 @@ private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSh
         }
     }
 }
-@OptIn(InternalSerializationApi::class)
+
 private fun parseJsonToSocketData(json: String): SocketData {
     val type = Json.parseToJsonElement(json).jsonObject["type"]
         ?.toString()
@@ -103,6 +100,7 @@ class KtorWebsocketServer {
             }
             install(Routing)
             install(WebSockets)
+
 
 
             routing {
