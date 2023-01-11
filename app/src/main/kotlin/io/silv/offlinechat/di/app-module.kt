@@ -13,6 +13,7 @@ import io.silv.offlinechat.data.ktor.KtorWebsocketClient
 import io.silv.offlinechat.data.ktor.KtorWebsocketServer
 import io.silv.offlinechat.data.room.DatabaseRepo
 import io.silv.offlinechat.data.room.OfflineChatDatabase
+import io.silv.offlinechat.repositories.MessageRepo
 import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import org.koin.android.ext.koin.androidApplication
@@ -50,9 +51,11 @@ val appModule = module {
         MainActivityViewModel(
             receiver = get(),
             attachmentReceiver = get(),
-            messageImageRepo = get { parametersOf("message-images") },
-            ktorWebsocketClient = get(),
-            ktorWebsocketServer = get(),
+            messageRepo = MessageRepo(
+                messageImageRepo = get { parametersOf("message-images") },
+                ktorWebsocketServer = get(),
+                ktorWebsocketClient = get()
+            )
 //            db = get()
         )
     }
@@ -90,7 +93,6 @@ val wifiP2pModule = module {
         WifiP2pReceiver(
             manager = get(),
             channel = get(),
-            wifiManager = get()
         )
     }
 

@@ -4,120 +4,117 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.NetworkInfo
-import android.net.wifi.WifiManager
-import android.net.wifi.p2p.WifiP2pDevice
-import android.net.wifi.p2p.WifiP2pInfo
-import android.net.wifi.p2p.WifiP2pManager
+import android.net.wifi.WpsInfo
+import android.net.wifi.p2p.*
+import android.net.wifi.p2p.WifiP2pManager.EXTRA_WIFI_P2P_DEVICE
+import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.net.NetworkInterface
-import java.util.*
 
+sealed class P2pEvent {
+    data class StateChanged(val enabled: Boolean): P2pEvent()
+
+    data class PeersChanged(val peers: List<WifiP2pDevice>): P2pEvent()
+
+    data class ConnectionChanged(val networkInfo: NetworkInfo?, val p2pInfo: WifiP2pInfo?): P2pEvent()
+
+    data class DeviceChanged(val device: WifiP2pDevice?): P2pEvent()
+
+    data class Error(val message: String, val throwable: Throwable? = null): P2pEvent()
+}
 class WifiP2pReceiver(
     val manager: WifiP2pManager,
-    private val wifiManager: WifiManager,
     val channel: WifiP2pManager.Channel,
-    var scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ): BroadcastReceiver() {
-
-    private val mutablePeersList = MutableStateFlow(emptyList<WifiP2pDevice>())
-    val peersList = mutablePeersList.asStateFlow()
-
-    private val mutableErrorChannel = Channel<WifiP2pError>()
-    val errorChannel = mutableErrorChannel.receiveAsFlow()
 
     val wifiP2pInfo = MutableStateFlow<WifiP2pInfo?>(null)
 
-    fun getDeviceMacAddress(): String =
-        try {
-            NetworkInterface.getNetworkInterfaces()
-                .toList()
-                .find { networkInterface -> networkInterface.name.equals("wlan0", ignoreCase = true) }
-                ?.hardwareAddress
-                ?.joinToString(separator = ":") { byte -> "%02X".format(byte) } ?: "nul"
-        } catch (ex: Exception) {
-            ex.printStackTrace()
-            "null"
-        }
-
+    private val mutableEventFlow = MutableSharedFlow<P2pEvent>()
+    val eventReceiveFlow = mutableEventFlow.asSharedFlow()
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("peers", "onReceive invoked data ${intent.data.toString()}")
-        when(intent.action) {
-            WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
-                Log.d("WifiP2pReceiver", "WIFI_P2P_STATE_CHANGED_ACTION")
-                // Determine if Wi-Fi Direct mode is enabled or not, alert
-                // the Activity.
-                val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
-                val isEnabled = state == WifiP2pManager.WIFI_P2P_STATE_ENABLED
-                if (!isEnabled) {
-                    scope.launch {
-                        mutableErrorChannel.send(WifiP2pError.WifiDirectNotEnabled)
-                    }
-                } else {
-                    discoverPeers()
+        scope.launch {
+            when(intent.action) {
+                WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
+                    Log.d("WifiP2pReceiver", "WIFI_P2P_STATE_CHANGED_ACTION")
+                    val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
+                    mutableEventFlow.emit(
+                        P2pEvent.StateChanged(
+                            enabled = state == WifiP2pManager.WIFI_P2P_STATE_ENABLED
+                        )
+                    )
                 }
-            }
-            WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION -> {
-                Log.d("WifiP2pReceiver", "WIFI_P2P_PEERS_CHANGED_ACTION")
-                manager.requestPeers(channel) { peerList ->
-                    scope.launch {
-                        mutablePeersList.emit(peerList.deviceList.toList())
-                    }
+                WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION -> {
+                    Log.d("WifiP2pReceiver", "WIFI_P2P_PEERS_CHANGED_ACTION")
+                    val deviceList = intent.getExtra<WifiP2pDeviceList>(WifiP2pManager.EXTRA_P2P_DEVICE_LIST)
+                    mutableEventFlow.emit(
+                        P2pEvent.PeersChanged(deviceList?.deviceList?.toList() ?: emptyList())
+                    )
                 }
-            }
-            WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
-                Log.d("WifiP2pReceiver", "WIFI_P2P_CONNECTION_CHANGED_ACTION ")
-                scope.launch {
-                    val networkInfo: NetworkInfo? = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO)
-                    if (networkInfo?.isConnected == true) {
-                        manager.requestConnectionInfo(this@WifiP2pReceiver.channel) { info ->
-                            scope.launch {
-                                wifiP2pInfo.emit(info)
-                            }
-                        }
-                    } else {
-                        wifiP2pInfo.emit(null)
-                        discoverPeers()
-                    }
+                WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
+                    Log.d("WifiP2pReceiver", "WIFI_P2P_CONNECTION_CHANGED_ACTION ")
+                    val networkInfo = intent.getExtra<NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
+                    val p2pInfo = intent.getExtra<WifiP2pInfo>(WifiP2pManager.EXTRA_WIFI_P2P_INFO)
+                    mutableEventFlow.emit(
+                        P2pEvent.ConnectionChanged(networkInfo, p2pInfo)
+                    )
                 }
-            }
-            WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION -> {
-                Log.d("WifiP2pReceiver", "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION ")
+                WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION -> {
+                    Log.d("WifiP2pReceiver", "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION ")
+                    val device = intent.getExtra<WifiP2pDevice>(EXTRA_WIFI_P2P_DEVICE)
+                    mutableEventFlow.emit(
+                        P2pEvent.DeviceChanged(device)
+                    )
+                }
             }
         }
     }
-    /**
-     *  this only initiates peer discovery. starts the discovery process and then immediately returns.
-     *  The system notifies you if the peer discovery process is successfully
-     *  initiated by calling methods in the provided action listener.
-     *  Also, discovery remains active until a connection is initiated or a P2P group is formed.
-     */
-    private fun discoverPeers() {
+    suspend fun connectToDevice(
+        device: WifiP2pDevice,
+        onSuccess: () -> Unit = { },
+        onFailure: (code: Int) -> Unit = { }
+    ) {
+        val config = WifiP2pConfig().apply {
+            deviceAddress = device.deviceAddress
+            wps.setup = WpsInfo.PBC
+        }
+        manager.connect(channel, config, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                // WiFiDirectBroadcastReceiver notifies us. Ignore for now.
+                Log.d("peers", "onSuccess called connectTodevice()")
+                onSuccess()
+            }
+            override fun onFailure(reason: Int) {
+                //failure logic
+                Log.d("peers", "onFailure called connectToDevice()")
+                onFailure(reason)
+            }
+        })
+    }
+    suspend fun refreshPeers(
+        onFailure: (code: Int) -> Unit = { },
+        onSuccess: () -> Unit = { },
+    ) {
         Log.d("WifiP2pReceiver", "discoverPeers() invoked")
         manager.discoverPeers(
             channel,
             object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
                     Log.d("WifiP2pReceiver", "discoverPeers() success")
+                    onSuccess()
                 }
-
                 override fun onFailure(reasonCode: Int) {
-                    scope.launch {
-                        mutableErrorChannel.send(WifiP2pError.PeerDiscoveryFailure(reasonCode))
-                    }
+                    onFailure(reasonCode)
                 }
             }
         )
     }
 }
 
-sealed class WifiP2pError {
-    data class PeerDiscoveryFailure(val reasonCode: Int): WifiP2pError()
-    object WifiDirectNotEnabled: WifiP2pError()
-
-    data class DataR(val d: String): WifiP2pError()
-}
+private inline fun <reified T>Intent.getExtra(extra: String) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+    this.getParcelableExtra(extra, T::class.java)
+else this.getParcelableExtra(extra) as? T?

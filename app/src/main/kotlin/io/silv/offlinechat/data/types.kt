@@ -54,5 +54,6 @@ data class Image(
 }
 
 data class LocalImage(
-    val uri: Uri
+    val uri: Uri,
+    val time: Long
 ): LocalData

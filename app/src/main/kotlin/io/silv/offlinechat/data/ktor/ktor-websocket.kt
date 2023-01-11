@@ -77,19 +77,15 @@ class KtorWebsocketServer {
     suspend fun sendAck(ack: Ack) {
         socket?.send(Json.encodeToString(ack))
     }
-    suspend fun sendMessage(message: Message) {
-        try {
+    suspend fun sendMessage(message: Message): Boolean {
+        return runCatching {
             socket?.send(Frame.Text(Json.encodeToString(message)))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.isSuccess
     }
-    suspend fun sendImage(image: Image) {
-        try {
+    suspend fun sendImage(image: Image): Boolean {
+        return runCatching {
             socket?.send(Frame.Text(Json.encodeToString(image)))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.isSuccess
     }
     fun start(port: Int, hostAddr: String) = CoroutineScope(Dispatchers.IO).launch {
         embeddedServer(
@@ -178,19 +174,15 @@ class KtorWebsocketClient {
          }
     }
 
-    suspend fun sendMessage(message: Message) {
-        try {
+    suspend fun sendMessage(message: Message): Boolean {
+        return runCatching {
             session?.send(Json.encodeToString(message))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.isSuccess
     }
 
-    suspend fun sendImage(image: Image) {
-        try {
+    suspend fun sendImage(image: Image): Boolean {
+        return runCatching {
             session?.send(Json.encodeToString(image))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.isSuccess
     }
 }

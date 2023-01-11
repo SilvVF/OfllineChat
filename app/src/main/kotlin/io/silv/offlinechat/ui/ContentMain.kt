@@ -1,12 +1,9 @@
 package io.silv.offlinechat.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Button
 import androidx.compose.material.Text
-import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,7 +11,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.silv.offlinechat.MainActivityViewModel
 import kotlinx.coroutines.delay
-import org.koin.androidx.compose.get
 
 @Composable
 fun ContentMain(
@@ -22,7 +18,7 @@ fun ContentMain(
     showToast: (String) -> Unit,
     navigateToMessage: () -> Unit
 ) {
-    val peers by viewModel.peers.collectAsState()
+    val peers = viewModel.peers
     val connectionInfo by viewModel.connectionInfo.collectAsState()
 
     LaunchedEffect(key1 = connectionInfo) {
