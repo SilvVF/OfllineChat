@@ -29,6 +29,7 @@ import org.slf4j.event.Level
 private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSharedFlow<LocalData>) {
     when (data) {
         is Message -> {
+            Log.d("Received", data.toString())
             mutableLocalDataFlow.emit(data)
         }
         is Ack -> {
@@ -36,9 +37,8 @@ private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSh
             mutableLocalDataFlow.emit(ChatRequest(data.mac, data.name))
         }
         is Image -> {
-            withContext(Dispatchers.IO) {
-                mutableLocalDataFlow.emit(data)
-            }
+            Log.d("Received", data.toString())
+            mutableLocalDataFlow.emit(data)
         }
     }
 }
@@ -108,10 +108,20 @@ class KtorWebsocketServer {
                         incoming.receiveAsFlow().collect { frame ->
                             if (frame is Frame.Text) {
                                 try {
-                                    onReceived(
-                                        data = parseJsonToSocketData(frame.readText()),
-                                        mutableLocalDataFlow
-                                    )
+                                    when (val data = parseJsonToSocketData(frame.readText())) {
+                                        is Message -> {
+                                                Log.d("Received", data.toString())
+                                            mutableLocalDataFlow.emit(data)
+                                        }
+                                        is Ack -> {
+                                            Log.d("Received", data.toString())
+                                                mutableLocalDataFlow.emit(ChatRequest(data.mac, data.name))
+                                            }
+                                            is Image -> {
+                                                Log.d("Received", data.toString())
+                                                mutableLocalDataFlow.emit(data)
+                                            }
+                                        }
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
@@ -140,22 +150,15 @@ class KtorWebsocketClient {
 
     private var session: DefaultClientWebSocketSession? = null
 
-    fun connect(port: Int, hostname: String, mac: String) = CoroutineScope(Dispatchers.IO).launch {
+    fun connect(
+        port: Int,
+        hostname: String,
+        onSuccess: suspend () -> Unit,
+        onFailure: suspend () -> Unit
+    ) = CoroutineScope(Dispatchers.IO).launch {
         runCatching {
            client.webSocket(method = HttpMethod.Get, host = hostname, port = port, path = "/echo") {
                session = this
-               launch {
-                   repeat(5) {
-                       runCatching {
-                           send(
-                               Json.encodeToString(
-                                   Ack(mac = mac, name = "hello")
-                               )
-                           )
-                       }
-                       delay(1000)
-                   }
-               }
                incoming.receiveAsFlow().collect { frame ->
                    if (frame is Frame.Text) {
                        try {
@@ -171,7 +174,10 @@ class KtorWebsocketClient {
            }
          }.onFailure { exception ->
             exception.printStackTrace()
-         }
+            onFailure()
+         }.onSuccess {
+             onSuccess()
+        }
     }
 
     suspend fun sendMessage(message: Message): Boolean {

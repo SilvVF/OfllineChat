@@ -19,7 +19,7 @@ fun ContentMain(
     navigateToMessage: () -> Unit
 ) {
     val peers = viewModel.peers
-    val connectionInfo by viewModel.connectionInfo.collectAsState()
+    val connectionInfo = viewModel.connectionInfo
 
     LaunchedEffect(key1 = connectionInfo) {
         if (connectionInfo?.isGroupOwner == true) {

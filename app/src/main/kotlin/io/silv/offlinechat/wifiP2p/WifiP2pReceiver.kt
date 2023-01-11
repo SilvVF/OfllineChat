@@ -9,10 +9,8 @@ import android.net.wifi.p2p.*
 import android.net.wifi.p2p.WifiP2pManager.EXTRA_WIFI_P2P_DEVICE
 import android.os.Build
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 
 sealed class P2pEvent {
     data class StateChanged(val enabled: Boolean): P2pEvent()
@@ -97,7 +95,7 @@ class WifiP2pReceiver(
     }
     suspend fun refreshPeers(
         onFailure: (code: Int) -> Unit = { },
-        onSuccess: () -> Unit = { },
+        onSuccess: suspend () -> Unit = { },
     ) {
         Log.d("WifiP2pReceiver", "discoverPeers() invoked")
         manager.discoverPeers(
@@ -105,7 +103,9 @@ class WifiP2pReceiver(
             object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
                     Log.d("WifiP2pReceiver", "discoverPeers() success")
-                    onSuccess()
+                    scope.launch(Dispatchers.Default) {
+                        onSuccess()
+                    }
                 }
                 override fun onFailure(reasonCode: Int) {
                     onFailure(reasonCode)

@@ -6,13 +6,21 @@ import io.silv.offlinechat.data.*
 import io.silv.offlinechat.data.ktor.KtorWebsocketClient
 import io.silv.offlinechat.data.ktor.KtorWebsocketServer
 import io.silv.offlinechat.ui.ImageReceiver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.withLock
 
 class MessageRepo(
     private val messageImageRepo: ImageFileRepo,
     private val ktorWebsocketServer: KtorWebsocketServer,
     private val ktorWebsocketClient: KtorWebsocketClient,
 ) {
+
 
     suspend fun startListeningForMessages(
         isGroupOwner: Boolean,
@@ -22,13 +30,7 @@ class MessageRepo(
         if (isGroupOwner) {
             ktorWebsocketServer.start(8888, groupOwnerAddress)
             ktorWebsocketServer.subscribeToSocketData { data ->
-                Log.d("Received", data.toString())
-                onReceived(data)
-            }
-        } else {
-            ktorWebsocketClient.connect(8888, groupOwnerAddress, "")
-            ktorWebsocketClient.subscribeToSocketData { data ->
-                Log.d("Received", data.toString())
+                Log.d("Received Repo", data.toString())
                 when (data) {
                     is Image -> {
                         writeBytesToFileRepo(messageImageRepo, data).collect { uri ->
@@ -38,6 +40,28 @@ class MessageRepo(
                     else -> onReceived(data)
                 }
             }
+        } else {
+            delay(3000)
+            ktorWebsocketClient.connect(
+                8888,
+                groupOwnerAddress,
+                onSuccess = {
+                    ktorWebsocketClient.subscribeToSocketData { data ->
+                        Log.d("Received Repo", data.toString())
+                        when (data) {
+                            is Image -> {
+                                writeBytesToFileRepo(messageImageRepo, data).collect { uri ->
+                                    onReceived(LocalImage(uri, data.time))
+                                }
+                            }
+                            else -> onReceived(data)
+                        }
+                    }
+                },
+                onFailure = {
+
+                }
+            )
         }
     }
 

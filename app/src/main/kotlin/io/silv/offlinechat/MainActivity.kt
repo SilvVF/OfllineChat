@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     if (permissionState.allPermissionsGranted) {
                         val (s, setS) = mutableStateOf(true)
-                        if (viewModel.connectionInfo.collectAsState().value == null) {
+                        if (viewModel.connectionInfo?.groupFormed != true) {
                             ContentMain(
                                 viewModel = viewModel,
                                 showToast = {
