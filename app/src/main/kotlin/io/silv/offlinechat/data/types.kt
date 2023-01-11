@@ -11,7 +11,15 @@ abstract class SocketData(
 interface LocalData
 
 @Serializable
-class Ack: SocketData("ack")
+data class Ack(
+    val mac: String ="",
+    val name: String=""
+): SocketData("ack")
+
+data class ChatRequest(
+    val mac: String,
+    val name: String
+): LocalData
 
 @Serializable
 data class Message(

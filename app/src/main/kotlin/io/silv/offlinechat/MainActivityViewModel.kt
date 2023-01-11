@@ -14,12 +14,14 @@ import androidx.lifecycle.viewModelScope
 import io.silv.offlinechat.data.*
 import io.silv.offlinechat.data.ktor.KtorWebsocketClient
 import io.silv.offlinechat.data.ktor.KtorWebsocketServer
+import io.silv.offlinechat.data.room.UriAsStringSerializer
 import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pError
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.Serializable
 
 
 class MainActivityViewModel(
@@ -27,10 +29,11 @@ class MainActivityViewModel(
     private val receiver: WifiP2pReceiver,
     val attachmentReceiver: ImageReceiver,
     private val ktorWebsocketServer: KtorWebsocketServer,
-    private val ktorWebsocketClient: KtorWebsocketClient
+    private val ktorWebsocketClient: KtorWebsocketClient,
+    //private val db: DatabaseRepo
 ): ViewModel() {
 
-    val connectionInfo = receiver.connectionInfo.asStateFlow()
+    val connectionInfo = receiver.wifiP2pInfo.asStateFlow()
 
     private val mutableSideEffectChannel = Channel<String>()
     val sideEffects = mutableSideEffectChannel.receiveAsFlow()
@@ -50,32 +53,36 @@ class MainActivityViewModel(
     }
 
     private fun listenForConnection() = viewModelScope.launch {
-        connectionInfo.collectLatest { wifiInfo ->
-            wifiInfo?.let { info ->
-                val groupOwnerAddress = info.groupOwnerAddress.hostAddress ?: "127.0.0.1"
-                println(info.groupOwnerAddress.hostAddress)
-                if (wifiInfo.isGroupOwner) {
+        connectionInfo.collectLatest {
+            it?.let { info ->
+                val groupOwnerAddress = info.groupOwnerAddress?.hostAddress ?: return@collectLatest
+                if (info.isGroupOwner) {
                     isServer = true
                     ktorWebsocketServer.start(8888, groupOwnerAddress)
-                    ktorWebsocketServer.subscribeToSocketData {
-                        receivedLocalData(it)
+                    ktorWebsocketServer.subscribeToSocketData { data ->
+                        Log.d("Received", data.toString())
+                        receivedLocalData(data)
                     }
                 } else {
                     isServer = false
                     delay(2000)
                     runCatching {
-                        ktorWebsocketClient.connect(8888, groupOwnerAddress)
+                        ktorWebsocketClient.connect(
+                            port = 8888,
+                            hostname = groupOwnerAddress,
+                            mac = receiver.getDeviceMacAddress()
+                        )
                     }
-                    ktorWebsocketClient.subscribeToSocketData {
-                        Log.d("Received", it.toString())
-                        receivedLocalData(it)
+                    ktorWebsocketClient.subscribeToSocketData { data ->
+                        Log.d("Received", data.toString())
+                        receivedLocalData(data)
                     }
                 }
             }
         }
     }
 
-    private fun receivedLocalData(localData: LocalData) {
+    private suspend fun receivedLocalData(localData: LocalData) {
         when(localData) {
             is Message -> {
                 messages = buildList {
@@ -91,6 +98,13 @@ class MainActivityViewModel(
                             addAll(messages)
                         }
                     }
+                }
+            }
+            is ChatRequest ->  {
+                if (isServer) {
+                    ktorWebsocketServer.sendAck(
+                        Ack(mac = receiver.getDeviceMacAddress(), name = "server hello")
+                    )
                 }
             }
         }
@@ -169,8 +183,18 @@ class MainActivityViewModel(
     }
 }
 sealed interface Chat {
+    @Serializable
     data class SentMessage(val s: String, val time: Long): Chat
+    @Serializable
     data class ReceivedMessage(val s: String, val time: Long): Chat
-    data class SentImage(val uri: Uri, val time: Long): Chat
-    data class ReceivedImage(val uri: Uri, val time: Long): Chat
+    @Serializable
+    data class SentImage(
+        @Serializable(UriAsStringSerializer::class) val uri: Uri,
+        val time: Long
+    ): Chat
+    @Serializable
+    data class ReceivedImage(
+        @Serializable(UriAsStringSerializer::class) val uri: Uri,
+        val time: Long
+    ): Chat
 }

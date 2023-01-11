@@ -26,7 +26,7 @@ fun ContentMain(
     val connectionInfo by viewModel.connectionInfo.collectAsState()
 
     LaunchedEffect(key1 = connectionInfo) {
-        if (connectionInfo?.groupFormed == true) {
+        if (connectionInfo?.isGroupOwner == true) {
             navigateToMessage()
         }
     }

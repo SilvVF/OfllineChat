@@ -1,7 +1,9 @@
 package io.silv.offlinechat.di
 
 import android.content.Context
+import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pManager
+import androidx.room.Room
 import io.silv.offlinechat.MainActivityViewModel
 import io.silv.offlinechat.data.ImageFileRepo
 import io.silv.offlinechat.data.datastore.UserSettingsDataStoreRepo
@@ -9,6 +11,8 @@ import io.silv.offlinechat.data.datastore.UserSettingsDataStoreRepoImpl
 import io.silv.offlinechat.data.datastore.userSettingsDataStore
 import io.silv.offlinechat.data.ktor.KtorWebsocketClient
 import io.silv.offlinechat.data.ktor.KtorWebsocketServer
+import io.silv.offlinechat.data.room.DatabaseRepo
+import io.silv.offlinechat.data.room.OfflineChatDatabase
 import io.silv.offlinechat.ui.ImageReceiver
 import io.silv.offlinechat.wifiP2p.WifiP2pReceiver
 import org.koin.android.ext.koin.androidApplication
@@ -20,6 +24,14 @@ import org.koin.dsl.module
 
 val appModule = module {
 
+    single {
+        Room.databaseBuilder(
+            androidContext(),
+            OfflineChatDatabase::class.java,
+            "offline-database"
+        ).build()
+    }
+
     factory {
         ImageReceiver(
             get { parametersOf("attachments") }
@@ -30,13 +42,18 @@ val appModule = module {
         ImageFileRepo(androidContext(), parameters.get() )
     }
 
+    factory {
+        DatabaseRepo(get<OfflineChatDatabase>())
+    }
+
     viewModel {
         MainActivityViewModel(
             receiver = get(),
             attachmentReceiver = get(),
             messageImageRepo = get { parametersOf("message-images") },
             ktorWebsocketClient = get(),
-            ktorWebsocketServer = get()
+            ktorWebsocketServer = get(),
+//            db = get()
         )
     }
 }
@@ -57,6 +74,9 @@ val wifiP2pModule = module {
         androidApplication().getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
     }
 
+    single<WifiManager> {
+        androidApplication().applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    }
 
     single<WifiP2pManager.Channel> {
         get<WifiP2pManager>()
@@ -70,6 +90,7 @@ val wifiP2pModule = module {
         WifiP2pReceiver(
             manager = get(),
             channel = get(),
+            wifiManager = get()
         )
     }
 

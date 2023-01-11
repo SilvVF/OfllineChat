@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.NetworkInfo
+import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
@@ -11,14 +12,14 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-
+import java.net.NetworkInterface
+import java.util.*
 
 class WifiP2pReceiver(
     val manager: WifiP2pManager,
+    private val wifiManager: WifiManager,
     val channel: WifiP2pManager.Channel,
     var scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ): BroadcastReceiver() {
@@ -29,7 +30,19 @@ class WifiP2pReceiver(
     private val mutableErrorChannel = Channel<WifiP2pError>()
     val errorChannel = mutableErrorChannel.receiveAsFlow()
 
-    val connectionInfo = MutableStateFlow<WifiP2pInfo?>(null)
+    val wifiP2pInfo = MutableStateFlow<WifiP2pInfo?>(null)
+
+    fun getDeviceMacAddress(): String =
+        try {
+            NetworkInterface.getNetworkInterfaces()
+                .toList()
+                .find { networkInterface -> networkInterface.name.equals("wlan0", ignoreCase = true) }
+                ?.hardwareAddress
+                ?.joinToString(separator = ":") { byte -> "%02X".format(byte) } ?: "nul"
+        } catch (ex: Exception) {
+            ex.printStackTrace()
+            "null"
+        }
 
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("peers", "onReceive invoked data ${intent.data.toString()}")
@@ -58,19 +71,17 @@ class WifiP2pReceiver(
             }
             WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
                 Log.d("WifiP2pReceiver", "WIFI_P2P_CONNECTION_CHANGED_ACTION ")
-                manager.let { manager ->
+                scope.launch {
                     val networkInfo: NetworkInfo? = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO)
                     if (networkInfo?.isConnected == true) {
-                        manager.requestConnectionInfo(channel) { info ->
+                        manager.requestConnectionInfo(this@WifiP2pReceiver.channel) { info ->
                             scope.launch {
-                                connectionInfo.emit(info)
+                                wifiP2pInfo.emit(info)
                             }
                         }
                     } else {
-                        scope.launch {
-                            connectionInfo.emit(null)
-                            discoverPeers()
-                        }
+                        wifiP2pInfo.emit(null)
+                        discoverPeers()
                     }
                 }
             }

@@ -33,6 +33,7 @@ private suspend fun onReceived(data: SocketData, mutableLocalDataFlow: MutableSh
         }
         is Ack -> {
             Log.d("Received", data.toString())
+            mutableLocalDataFlow.emit(ChatRequest(data.mac, data.name))
         }
         is Image -> {
             withContext(Dispatchers.IO) {
@@ -64,16 +65,18 @@ class KtorWebsocketServer {
 
     private val mutableLocalDataFlow = MutableSharedFlow<LocalData>()
 
+    private var socket: DefaultWebSocketServerSession? = null
     suspend fun subscribeToSocketData(
-        callback: (LocalData) -> Unit
+        callback: suspend (LocalData) -> Unit
     ) {
         mutableLocalDataFlow.asSharedFlow().collect { data ->
             callback(data)
         }
     }
 
-    private var socket: DefaultWebSocketServerSession? = null
-
+    suspend fun sendAck(ack: Ack) {
+        socket?.send(Json.encodeToString(ack))
+    }
     suspend fun sendMessage(message: Message) {
         try {
             socket?.send(Frame.Text(Json.encodeToString(message)))
@@ -132,7 +135,7 @@ class KtorWebsocketClient {
     private val mutableLocalDataFlow = MutableSharedFlow<LocalData>()
 
     suspend fun subscribeToSocketData(
-        callback: (LocalData) -> Unit
+        callback: suspend (LocalData) -> Unit
     ) {
         mutableLocalDataFlow.asSharedFlow().collect { data ->
             callback(data)
@@ -141,13 +144,20 @@ class KtorWebsocketClient {
 
     private var session: DefaultClientWebSocketSession? = null
 
-    fun connect(port: Int, hostname: String) = CoroutineScope(Dispatchers.IO).launch {
+    fun connect(port: Int, hostname: String, mac: String) = CoroutineScope(Dispatchers.IO).launch {
         runCatching {
            client.webSocket(method = HttpMethod.Get, host = hostname, port = port, path = "/echo") {
                session = this
                launch {
                    repeat(5) {
-                       Json.encodeToString(Ack())
+                       runCatching {
+                           send(
+                               Json.encodeToString(
+                                   Ack(mac = mac, name = "hello")
+                               )
+                           )
+                       }
+                       delay(1000)
                    }
                }
                incoming.receiveAsFlow().collect { frame ->
